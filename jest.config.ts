@@ -4,6 +4,7 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: '.',
+  setupFiles: ['dotenv/config'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
