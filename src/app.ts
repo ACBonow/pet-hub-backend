@@ -10,6 +10,7 @@ import helmet from '@fastify/helmet'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
+import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationService } from './modules/organization'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -34,8 +35,13 @@ export function buildApp(): FastifyInstance {
   registerAuthRoutes(app, authService)
 
   // Person routes
-  const personService = new PersonService(new PrismaPersonRepository())
+  const personRepository = new PrismaPersonRepository()
+  const personService = new PersonService(personRepository)
   registerPersonRoutes(app, personService)
+
+  // Organization routes
+  const orgService = new OrganizationService(new PrismaOrganizationRepository(), personRepository)
+  registerOrganizationRoutes(app, orgService)
 
   return app
 }
