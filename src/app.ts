@@ -12,6 +12,7 @@ import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
 import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationService } from './modules/organization'
 import { PrismaPetRepository, registerPetRoutes, PetService } from './modules/pet'
+import { PrismaAdoptionRepository, registerAdoptionRoutes, AdoptionService } from './modules/adoption'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -47,6 +48,15 @@ export function buildApp(): FastifyInstance {
   // Pet routes
   const petService = new PetService(new PrismaPetRepository(), personRepository, new PrismaOrganizationRepository())
   registerPetRoutes(app, petService)
+
+  // Adoption routes
+  const adoptionService = new AdoptionService(
+    new PrismaAdoptionRepository(),
+    new PrismaPetRepository(),
+    personRepository,
+    new PrismaOrganizationRepository(),
+  )
+  registerAdoptionRoutes(app, adoptionService)
 
   return app
 }
