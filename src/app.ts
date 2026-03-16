@@ -11,6 +11,7 @@ import { registerErrorHandler } from './shared/middleware/error.middleware'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
 import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationService } from './modules/organization'
+import { PrismaPetRepository, registerPetRoutes, PetService } from './modules/pet'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -42,6 +43,10 @@ export function buildApp(): FastifyInstance {
   // Organization routes
   const orgService = new OrganizationService(new PrismaOrganizationRepository(), personRepository)
   registerOrganizationRoutes(app, orgService)
+
+  // Pet routes
+  const petService = new PetService(new PrismaPetRepository(), personRepository, new PrismaOrganizationRepository())
+  registerPetRoutes(app, petService)
 
   return app
 }
