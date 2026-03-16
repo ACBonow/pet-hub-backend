@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  refreshToken String?  @map("refresh_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  person Person?
+
+  @@map("users")
+}
+
+// ─── Person ──────────────────────────────────────────────────────────────────
+
+model Person {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  name      String
+  cpf       String   @unique // 11 digits, no formatting
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationsAsOwner OrganizationPerson[]
+  tutoredPets          Tutorship[]            @relation("PersonTutor")
+  coTutoredPets        CoTutor[]              @relation("PersonCoTutor")
+  adoptionListings     AdoptionListing[]      @relation("PersonAdoption")
+  lostFoundReports     LostFoundReport[]
+
+  @@index([cpf])
+  @@map("persons")
+}
+
+// ─── Organization ────────────────────────────────────────────────────────────
+
+enum OrgType {
+  COMPANY
+  NGO
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  type        OrgType
+  cnpj        String?  @unique // 14 digits, no formatting — required for COMPANY
+  description String?
+  phone       String?
+  email       String?
+  address     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  responsiblePersons OrganizationPerson[]
+  tutoredPets        Tutorship[]          @relation("OrgTutor")
+  coTutoredPets      CoTutor[]            @relation("OrgCoTutor")
+  adoptionListings   AdoptionListing[]    @relation("OrgAdoption")
+  serviceListings    ServiceListing[]
+
+  @@index([cnpj])
+  @@map("organizations")
+}
+
+model OrganizationPerson {
+  organizationId String   @map("organization_id")
+  personId       String   @map("person_id")
+  assignedAt     DateTime @default(now()) @map("assigned_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, personId])
+  @@map("organization_persons")
+}
+
+// ─── Pet ─────────────────────────────────────────────────────────────────────
+
+model Pet {
+  id        String    @id @default(uuid())
+  name      String
+  species   String    // e.g. "Cão", "Gato", "Ave"
+  breed     String?
+  gender    String?
+  birthDate DateTime? @map("birth_date")
+  photoUrl  String?   @map("photo_url")
+  microchip String?   @unique
+  notes     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  tutorships       Tutorship[]
+  coTutors         CoTutor[]
+  vaccinations     Vaccination[]
+  examFiles        ExamFile[]
+  adoptionListing  AdoptionListing?
+  lostFoundReports LostFoundReport[]
+
+  @@map("pets")
+}
+
+// ─── Tutorship ───────────────────────────────────────────────────────────────
+
+enum TutorType {
+  PERSON
+  ORGANIZATION
+}
+
+enum TutorshipType {
+  OWNER
+  TUTOR
+  TEMPORARY_HOME
+}
+
+model Tutorship {
+  id             String        @id @default(uuid())
+  petId          String        @map("pet_id")
+  tutorType      TutorType     @map("tutor_type")
+  personTutorId  String?       @map("person_tutor_id")
+  orgTutorId     String?       @map("org_tutor_id")
+  type           TutorshipType
+  active         Boolean       @default(true)
+  startDate      DateTime      @default(now()) @map("start_date")
+  endDate        DateTime?     @map("end_date")
+  transferNotes  String?       @map("transfer_notes")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  pet          Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  personTutor  Person?       @relation("PersonTutor", fields: [personTutorId], references: [id])
+  orgTutor     Organization? @relation("OrgTutor", fields: [orgTutorId], references: [id])
+
+  @@index([petId, active])
+  @@map("tutorships")
+}
+
+model CoTutor {
+  id            String    @id @default(uuid())
+  petId         String    @map("pet_id")
+  tutorType     TutorType @map("tutor_type")
+  personTutorId String?   @map("person_tutor_id")
+  orgTutorId    String?   @map("org_tutor_id")
+  assignedAt    DateTime  @default(now()) @map("assigned_at")
+
+  pet         Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  personTutor Person?       @relation("PersonCoTutor", fields: [personTutorId], references: [id])
+  orgTutor    Organization? @relation("OrgCoTutor", fields: [orgTutorId], references: [id])
+
+  @@unique([petId, personTutorId])
+  @@unique([petId, orgTutorId])
+  @@map("co_tutors")
+}
+
+// ─── Adoption ────────────────────────────────────────────────────────────────
+
+enum AdoptionStatus {
+  AVAILABLE
+  RESERVED
+  ADOPTED
+}
+
+model AdoptionListing {
+  id             String        @id @default(uuid())
+  petId          String        @unique @map("pet_id")
+  listenerType   TutorType     @map("listener_type") // who listed it
+  personId       String?       @map("person_id")
+  organizationId String?       @map("organization_id")
+  description    String?
+  status         AdoptionStatus @default(AVAILABLE)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  pet          Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  person       Person?       @relation("PersonAdoption", fields: [personId], references: [id])
+  organization Organization? @relation("OrgAdoption", fields: [organizationId], references: [id])
+
+  @@index([status])
+  @@map("adoption_listings")
+}
+
+// ─── Lost & Found ─────────────────────────────────────────────────────────────
+
+enum LostFoundType {
+  LOST
+  FOUND
+}
+
+enum LostFoundStatus {
+  OPEN
+  RESOLVED
+}
+
+model LostFoundReport {
+  id          String          @id @default(uuid())
+  type        LostFoundType
+  petId       String?         @map("pet_id")
+  reporterId  String          @map("reporter_id")
+  description String
+  location    String?
+  photoUrl    String?         @map("photo_url")
+  contactInfo String          @map("contact_info")
+  status      LostFoundStatus @default(OPEN)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  pet      Pet?   @relation(fields: [petId], references: [id])
+  reporter Person @relation(fields: [reporterId], references: [id])
+
+  @@index([type, status])
+  @@map("lost_found_reports")
+}
+
+// ─── Pet Health ───────────────────────────────────────────────────────────────
+
+model Vaccination {
+  id               String    @id @default(uuid())
+  petId            String    @map("pet_id")
+  vaccineName      String    @map("vaccine_name")
+  manufacturer     String?
+  batchNumber      String?   @map("batch_number")
+  applicationDate  DateTime  @map("application_date")
+  nextDueDate      DateTime? @map("next_due_date")
+  veterinarianName String?   @map("veterinarian_name")
+  clinicName       String?   @map("clinic_name")
+  fileUrl          String?   @map("file_url") // optional certificate scan
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId, applicationDate])
+  @@map("vaccinations")
+}
+
+model ExamFile {
+  id        String   @id @default(uuid())
+  petId     String   @map("pet_id")
+  examType  String   @map("exam_type") // e.g. "Hemograma", "Raio-X", "Ultrassom"
+  fileUrl   String   @map("file_url")  // Supabase Storage path
+  examDate  DateTime @map("exam_date")
+  labName   String?  @map("lab_name")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId, examDate])
+  @@map("exam_files")
+}
+
+// ─── Services Directory ───────────────────────────────────────────────────────
+
+enum ServiceType {
+  VETERINARIAN
+  CLINIC
+  EXAM
+  PHARMACY
+  GROOMING
+  BOARDING
+  TRANSPORT
+  OTHER
+}
+
+model ServiceListing {
+  id             String      @id @default(uuid())
+  name           String
+  type           ServiceType
+  description    String?
+  address        String?
+  phone          String?
+  email          String?
+  website        String?
+  organizationId String?     @map("organization_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([type])
+  @@map("service_listings")
+}
