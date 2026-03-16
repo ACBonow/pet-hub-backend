@@ -9,6 +9,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
+import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -31,6 +32,10 @@ export function buildApp(): FastifyInstance {
   // Auth routes
   const authService = new AuthService(new PrismaAuthRepository())
   registerAuthRoutes(app, authService)
+
+  // Person routes
+  const personService = new PersonService(new PrismaPersonRepository())
+  registerPersonRoutes(app, personService)
 
   return app
 }
