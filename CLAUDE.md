@@ -225,7 +225,9 @@ Ao concluir a task (todos os testes passando):
 git add <arquivos específicos>
 git commit -m "type(scope): descrição"
 git push origin TASK-BE-XXX
-gh pr create --base homologacao --title "[TASK-BE-XXX] Descrição" --body "..."
+# gh pr create --base homologacao --title "[TASK-BE-XXX] Descrição" --body "..."
+# Se gh não estiver disponível, abrir manualmente em:
+# github.com/ACBonow/pet-hub-backend/pull/new/TASK-BE-XXX (mudar base para homologacao)
 ```
 
 Regras:

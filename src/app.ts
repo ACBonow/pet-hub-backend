@@ -8,6 +8,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
+import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -26,6 +27,10 @@ export function buildApp(): FastifyInstance {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok' }))
+
+  // Auth routes
+  const authService = new AuthService(new PrismaAuthRepository())
+  registerAuthRoutes(app, authService)
 
   return app
 }

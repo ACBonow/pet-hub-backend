@@ -1,11 +1,19 @@
 /**
  * @module shared
  * @file auth.middleware.ts
- * @description JWT authentication guard. Completed in TASK-BE-006.
+ * @description JWT authentication guard. Verifies Bearer token and populates request.user.
  */
 
-import { FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
+import jwt, { type JwtPayload } from 'jsonwebtoken'
+import { env } from '../config/env'
 import { HttpError } from '../errors/HttpError'
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    user?: { id: string }
+  }
+}
 
 export async function authMiddleware(
   request: FastifyRequest,
@@ -17,13 +25,16 @@ export async function authMiddleware(
     throw HttpError.unauthorized()
   }
 
-  // JWT verification is implemented in TASK-BE-006 (auth module)
-  // Stub: just check header presence for now
   const token = authHeader.slice(7)
 
-  if (!token) {
+  try {
+    const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload
+    if (!payload.sub) {
+      throw HttpError.unauthorized()
+    }
+    request.user = { id: payload.sub }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AppError') throw error
     throw HttpError.unauthorized()
   }
-
-  // request.user will be set here after TASK-BE-006
 }
