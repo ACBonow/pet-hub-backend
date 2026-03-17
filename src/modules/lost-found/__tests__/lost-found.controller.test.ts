@@ -1,0 +1,364 @@
+/**
+ * @module lost-found
+ * @file lost-found.controller.test.ts
+ * @description HTTP-layer tests for lost-found routes using Fastify inject — service is mocked.
+ */
+
+import jwt from 'jsonwebtoken'
+import { buildApp } from '../../../app'
+import { LostFoundService } from '../lost-found.service'
+import { HttpError } from '../../../shared/errors/HttpError'
+
+jest.mock('../lost-found.service')
+const MockedLostFoundService = LostFoundService as jest.MockedClass<typeof LostFoundService>
+
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
+
+const VALID_REPORTER_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+const VALID_PET_UUID = 'b1c2d3e4-f5a6-7890-abcd-ef1234567891'
+
+const MOCK_REPORT = {
+  id: 'report-1',
+  type: 'LOST',
+  petId: VALID_PET_UUID,
+  reporterId: VALID_REPORTER_UUID,
+  description: 'Cachorro perdido no parque.',
+  location: 'Parque Ibirapuera',
+  photoUrl: null,
+  contactInfo: '11 99999-0000',
+  status: 'OPEN',
+  createdAt: new Date('2026-03-01').toISOString(),
+  updatedAt: new Date('2026-03-01').toISOString(),
+}
+
+function makeAuthToken(userId = 'user-1'): string {
+  return jwt.sign({ sub: userId }, process.env.JWT_SECRET ?? 'test-secret', { expiresIn: '15m' })
+}
+
+async function buildTestApp() {
+  MockedLostFoundService.mockClear()
+  const app = buildApp()
+  await app.ready()
+  const service = MockedLostFoundService.mock.instances[0]
+  return { app, service }
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe('LostFound routes', () => {
+  // ── POST /api/v1/lost-found ───────────────────────────────────────────────
+
+  describe('POST /api/v1/lost-found', () => {
+    it('returns 201 with report on successful creation', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.create).mockResolvedValueOnce(MOCK_REPORT as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'LOST',
+          petId: VALID_PET_UUID,
+          reporterId: VALID_REPORTER_UUID,
+          description: 'Cachorro perdido no parque.',
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.id).toBe('report-1')
+    })
+
+    it('returns 201 without petId (unknown pet)', async () => {
+      const reportWithoutPet = { ...MOCK_REPORT, petId: null }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.create).mockResolvedValueOnce(reportWithoutPet as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'FOUND',
+          reporterId: VALID_REPORTER_UUID,
+          description: 'Encontrei um gato na rua.',
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().success).toBe(true)
+    })
+
+    it('returns 400 on invalid body (missing description)', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'LOST',
+          reporterId: VALID_REPORTER_UUID,
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().success).toBe(false)
+    })
+
+    it('returns 400 on invalid type', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'INVALID',
+          reporterId: VALID_REPORTER_UUID,
+          description: 'Cachorro perdido.',
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().success).toBe(false)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        body: {
+          type: 'LOST',
+          reporterId: VALID_REPORTER_UUID,
+          description: 'Cachorro perdido.',
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 404 when reporter does not exist', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.create).mockRejectedValueOnce(HttpError.notFound('Relator'))
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'LOST',
+          reporterId: VALID_REPORTER_UUID,
+          description: 'Cachorro perdido.',
+          contactInfo: '11 99999-0000',
+        },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+  })
+
+  // ── GET /api/v1/lost-found ────────────────────────────────────────────────
+
+  describe('GET /api/v1/lost-found', () => {
+    it('returns 200 with reports list (public route)', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({
+        data: [MOCK_REPORT as any],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found',
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.meta.total).toBe(1)
+    })
+
+    it('filters by type when provided', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found?type=LOST',
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(service.findAll).toHaveBeenCalledWith(expect.objectContaining({ type: 'LOST' }))
+    })
+
+    it('filters by status when provided', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found?status=RESOLVED',
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(service.findAll).toHaveBeenCalledWith(expect.objectContaining({ status: 'RESOLVED' }))
+    })
+
+    it('returns 400 for invalid type query param', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found?type=INVALID',
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+  })
+
+  // ── GET /api/v1/lost-found/:id ────────────────────────────────────────────
+
+  describe('GET /api/v1/lost-found/:id', () => {
+    it('returns 200 with report when found (public route)', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findById).mockResolvedValueOnce(MOCK_REPORT as any)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found/report-1',
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.id).toBe('report-1')
+    })
+
+    it('returns 404 when report not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findById).mockRejectedValueOnce(HttpError.notFound('Relatório de achado/perdido'))
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found/nonexistent',
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+  })
+
+  // ── PATCH /api/v1/lost-found/:id/status ──────────────────────────────────
+
+  describe('PATCH /api/v1/lost-found/:id/status', () => {
+    it('returns 200 with updated report', async () => {
+      const updated = { ...MOCK_REPORT, status: 'RESOLVED' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.updateStatus).mockResolvedValueOnce(updated as any)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { status: 'RESOLVED' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.status).toBe('RESOLVED')
+    })
+
+    it('returns 400 on invalid status', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { status: 'INVALID_STATUS' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        body: { status: 'RESOLVED' },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 404 when report not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.updateStatus).mockRejectedValueOnce(HttpError.notFound('Relatório de achado/perdido'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { status: 'RESOLVED' },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+  })
+
+  // ── DELETE /api/v1/lost-found/:id ─────────────────────────────────────────
+
+  describe('DELETE /api/v1/lost-found/:id', () => {
+    it('returns 204 on successful deletion', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(204)
+    })
+
+    it('returns 404 when report not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockRejectedValueOnce(HttpError.notFound('Relatório de achado/perdido'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/lost-found/report-1',
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+  })
+})

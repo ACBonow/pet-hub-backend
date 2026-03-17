@@ -13,6 +13,7 @@ import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './m
 import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationService } from './modules/organization'
 import { PrismaPetRepository, registerPetRoutes, PetService } from './modules/pet'
 import { PrismaAdoptionRepository, registerAdoptionRoutes, AdoptionService } from './modules/adoption'
+import { PrismaLostFoundRepository, registerLostFoundRoutes, LostFoundService } from './modules/lost-found'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -46,17 +47,22 @@ export function buildApp(): FastifyInstance {
   registerOrganizationRoutes(app, orgService)
 
   // Pet routes
-  const petService = new PetService(new PrismaPetRepository(), personRepository, new PrismaOrganizationRepository())
+  const petRepository = new PrismaPetRepository()
+  const petService = new PetService(petRepository, personRepository, new PrismaOrganizationRepository())
   registerPetRoutes(app, petService)
 
   // Adoption routes
   const adoptionService = new AdoptionService(
     new PrismaAdoptionRepository(),
-    new PrismaPetRepository(),
+    petRepository,
     personRepository,
     new PrismaOrganizationRepository(),
   )
   registerAdoptionRoutes(app, adoptionService)
+
+  // Lost & Found routes
+  const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository)
+  registerLostFoundRoutes(app, lostFoundService)
 
   return app
 }

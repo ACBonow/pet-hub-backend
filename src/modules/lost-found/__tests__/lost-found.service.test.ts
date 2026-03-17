@@ -1,0 +1,267 @@
+/**
+ * @module lost-found
+ * @file lost-found.service.test.ts
+ * @description Unit tests for LostFoundService — repositories are mocked.
+ */
+
+import type { ILostFoundRepository } from '../lost-found.repository'
+import type { IPetRepository } from '../../pet'
+import type { IPersonRepository } from '../../person'
+import type { LostFoundReport } from '../lost-found.types'
+import { LostFoundService } from '../lost-found.service'
+
+// ─── Fixtures ────────────────────────────────────────────────────────────────
+
+const MOCK_REPORT: LostFoundReport = {
+  id: 'report-1',
+  type: 'LOST',
+  petId: 'pet-1',
+  reporterId: 'person-1',
+  description: 'Cachorro perdido no parque.',
+  location: 'Parque Ibirapuera, São Paulo',
+  photoUrl: null,
+  contactInfo: '11 99999-0000',
+  status: 'OPEN',
+  createdAt: new Date('2026-03-01'),
+  updatedAt: new Date('2026-03-01'),
+}
+
+const MOCK_PET = {
+  id: 'pet-1',
+  name: 'Rex',
+  species: 'Cão',
+  breed: null,
+  gender: null,
+  birthDate: null,
+  photoUrl: null,
+  microchip: null,
+  notes: null,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+  activeTutorship: null,
+  coTutors: [],
+}
+
+const MOCK_PERSON = {
+  id: 'person-1',
+  userId: 'user-1',
+  name: 'João Silva',
+  cpf: '52998224725',
+  phone: null,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+}
+
+function makeLostFoundRepo(overrides: Partial<ILostFoundRepository> = {}): jest.Mocked<ILostFoundRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findAll: jest.fn(),
+    updateStatus: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<ILostFoundRepository>
+}
+
+function makePetRepo(overrides: Partial<IPetRepository> = {}): jest.Mocked<IPetRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    updatePhotoUrl: jest.fn(),
+    transferTutorship: jest.fn(),
+    getTutorshipHistory: jest.fn(),
+    findActiveTutorship: jest.fn(),
+    addCoTutor: jest.fn(),
+    removeCoTutor: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IPetRepository>
+}
+
+function makePersonRepo(overrides: Partial<IPersonRepository> = {}): jest.Mocked<IPersonRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByUserId: jest.fn(),
+    findByCpf: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IPersonRepository>
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe('LostFoundService', () => {
+  let service: LostFoundService
+  let lostFoundRepo: jest.Mocked<ILostFoundRepository>
+  let petRepo: jest.Mocked<IPetRepository>
+  let personRepo: jest.Mocked<IPersonRepository>
+
+  beforeEach(() => {
+    lostFoundRepo = makeLostFoundRepo()
+    petRepo = makePetRepo()
+    personRepo = makePersonRepo()
+    service = new LostFoundService(lostFoundRepo, petRepo, personRepo)
+  })
+
+  // ── create ────────────────────────────────────────────────────────────────
+
+  describe('create', () => {
+    it('should throw NOT_FOUND when reporter does not exist', async () => {
+      personRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(
+        service.create({
+          type: 'LOST',
+          reporterId: 'nonexistent',
+          description: 'Cachorro perdido.',
+          contactInfo: '11 99999-0000',
+        }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw NOT_FOUND when petId provided but pet does not exist', async () => {
+      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(
+        service.create({
+          type: 'LOST',
+          petId: 'nonexistent',
+          reporterId: 'person-1',
+          description: 'Cachorro perdido.',
+          contactInfo: '11 99999-0000',
+        }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should create report without petId (unknown pet)', async () => {
+      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      const reportWithoutPet: LostFoundReport = { ...MOCK_REPORT, petId: null }
+      lostFoundRepo.create.mockResolvedValueOnce(reportWithoutPet)
+
+      const result = await service.create({
+        type: 'FOUND',
+        reporterId: 'person-1',
+        description: 'Encontrei um gato.',
+        contactInfo: '11 99999-0000',
+      })
+
+      expect(result).toEqual(reportWithoutPet)
+      expect(petRepo.findById).not.toHaveBeenCalled()
+      expect(lostFoundRepo.create).toHaveBeenCalledTimes(1)
+    })
+
+    it('should create report with petId when pet exists', async () => {
+      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      lostFoundRepo.create.mockResolvedValueOnce(MOCK_REPORT)
+
+      const result = await service.create({
+        type: 'LOST',
+        petId: 'pet-1',
+        reporterId: 'person-1',
+        description: 'Cachorro perdido no parque.',
+        contactInfo: '11 99999-0000',
+      })
+
+      expect(result).toEqual(MOCK_REPORT)
+      expect(petRepo.findById).toHaveBeenCalledWith('pet-1')
+      expect(lostFoundRepo.create).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // ── findAll ───────────────────────────────────────────────────────────────
+
+  describe('findAll', () => {
+    it('should return reports with pagination metadata', async () => {
+      lostFoundRepo.findAll.mockResolvedValueOnce({ reports: [MOCK_REPORT], total: 1 })
+
+      const result = await service.findAll({ type: 'LOST', status: 'OPEN', page: 1, pageSize: 20 })
+
+      expect(result.data).toHaveLength(1)
+      expect(result.total).toBe(1)
+      expect(result.page).toBe(1)
+      expect(result.pageSize).toBe(20)
+    })
+
+    it('should apply default pagination when not provided', async () => {
+      lostFoundRepo.findAll.mockResolvedValueOnce({ reports: [], total: 0 })
+
+      const result = await service.findAll({})
+
+      expect(result.page).toBe(1)
+      expect(result.pageSize).toBe(20)
+      expect(lostFoundRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20 }))
+    })
+  })
+
+  // ── findById ──────────────────────────────────────────────────────────────
+
+  describe('findById', () => {
+    it('should return report when found', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+
+      const result = await service.findById('report-1')
+
+      expect(result).toEqual(MOCK_REPORT)
+    })
+
+    it('should throw NOT_FOUND when report does not exist', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.findById('nonexistent')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+  })
+
+  // ── updateStatus ──────────────────────────────────────────────────────────
+
+  describe('updateStatus', () => {
+    it('should throw NOT_FOUND when report does not exist', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.updateStatus('nonexistent', 'RESOLVED')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should update status and return updated report', async () => {
+      const updated: LostFoundReport = { ...MOCK_REPORT, status: 'RESOLVED' }
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      lostFoundRepo.updateStatus.mockResolvedValueOnce(updated)
+
+      const result = await service.updateStatus('report-1', 'RESOLVED')
+
+      expect(result.status).toBe('RESOLVED')
+      expect(lostFoundRepo.updateStatus).toHaveBeenCalledWith('report-1', 'RESOLVED')
+    })
+  })
+
+  // ── delete ────────────────────────────────────────────────────────────────
+
+  describe('delete', () => {
+    it('should throw NOT_FOUND when report does not exist', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.delete('nonexistent')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should delete report when found', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      lostFoundRepo.delete.mockResolvedValueOnce(undefined)
+
+      await service.delete('report-1')
+
+      expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
+    })
+  })
+})
