@@ -7,6 +7,7 @@
 import Fastify, { FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
+import multipart from '@fastify/multipart'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
@@ -14,6 +15,7 @@ import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationS
 import { PrismaPetRepository, registerPetRoutes, PetService } from './modules/pet'
 import { PrismaAdoptionRepository, registerAdoptionRoutes, AdoptionService } from './modules/adoption'
 import { PrismaLostFoundRepository, registerLostFoundRoutes, LostFoundService } from './modules/lost-found'
+import { PrismaPetHealthRepository, registerPetHealthRoutes, PetHealthService } from './modules/pet-health'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -26,6 +28,7 @@ export function buildApp(): FastifyInstance {
   })
 
   app.register(helmet)
+  app.register(multipart)
 
   // Global error handler
   registerErrorHandler(app)
@@ -63,6 +66,14 @@ export function buildApp(): FastifyInstance {
   // Lost & Found routes
   const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository)
   registerLostFoundRoutes(app, lostFoundService)
+
+  // Pet Health routes
+  const petHealthService = new PetHealthService(
+    new PrismaPetHealthRepository(),
+    petRepository,
+    personRepository,
+  )
+  registerPetHealthRoutes(app, petHealthService)
 
   return app
 }
