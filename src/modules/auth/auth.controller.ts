@@ -5,7 +5,15 @@
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { LoginSchema, RefreshSchema, RegisterSchema } from './auth.schema'
+import {
+  ForgotPasswordSchema,
+  LoginSchema,
+  RefreshSchema,
+  RegisterSchema,
+  ResendVerificationSchema,
+  ResetPasswordSchema,
+  VerifyEmailSchema,
+} from './auth.schema'
 import type { AuthService } from './auth.service'
 
 export class AuthController {
@@ -50,5 +58,59 @@ export class AuthController {
   async logout(request: FastifyRequest, reply: FastifyReply) {
     await this.service.logout(request.user!.id)
     return reply.status(204).send()
+  }
+
+  async verifyEmail(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = VerifyEmailSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.verifyEmail(parsed.data)
+    return reply.status(200).send({ success: true, data: { message: 'E-mail verificado com sucesso.' } })
+  }
+
+  async resendVerification(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = ResendVerificationSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.resendVerification(parsed.data)
+    return reply.status(200).send({
+      success: true,
+      data: { message: 'Se o e-mail existir e não estiver verificado, você receberá um novo link.' },
+    })
+  }
+
+  async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = ForgotPasswordSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.forgotPassword(parsed.data)
+    return reply.status(200).send({
+      success: true,
+      data: { message: 'Se o e-mail existir, você receberá um link de redefinição de senha.' },
+    })
+  }
+
+  async resetPassword(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = ResetPasswordSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.resetPassword(parsed.data)
+    return reply.status(200).send({ success: true, data: { message: 'Senha redefinida com sucesso.' } })
   }
 }

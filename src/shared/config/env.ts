@@ -24,6 +24,10 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   CORS_ORIGIN: z.string().default('*'),
+
+  RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória.'),
+  EMAIL_FROM: z.string().email('EMAIL_FROM deve ser um e-mail válido.').default('noreply@pethub.com.br'),
+  FRONTEND_URL: z.string().url('FRONTEND_URL deve ser uma URL válida.').default('http://localhost:5173'),
 })
 
 const parsed = envSchema.safeParse(process.env)

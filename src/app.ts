@@ -9,6 +9,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
+import { ResendEmailService } from './shared/utils/email'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
 import { PrismaOrganizationRepository, registerOrganizationRoutes, OrganizationService } from './modules/organization'
@@ -38,7 +39,7 @@ export function buildApp(): FastifyInstance {
   app.get('/health', async () => ({ status: 'ok' }))
 
   // Auth routes
-  const authService = new AuthService(new PrismaAuthRepository())
+  const authService = new AuthService(new PrismaAuthRepository(), new ResendEmailService())
   registerAuthRoutes(app, authService)
 
   // Person routes
