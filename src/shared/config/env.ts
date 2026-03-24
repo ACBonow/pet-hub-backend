@@ -26,7 +26,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
 
   RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória.'),
-  EMAIL_FROM: z.string().email('EMAIL_FROM deve ser um e-mail válido.').default('noreply@pethub.com.br'),
+  EMAIL_FROM: z.string().email('EMAIL_FROM deve ser um e-mail válido.').default('noreply@tche-pethub.com'),
   FRONTEND_URL: z.string().url('FRONTEND_URL deve ser uma URL válida.').default('http://localhost:5173'),
 })
 
