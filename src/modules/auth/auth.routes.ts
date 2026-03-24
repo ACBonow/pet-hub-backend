@@ -19,4 +19,8 @@ export function registerAuthRoutes(app: FastifyInstance, service: AuthService): 
     preHandler: [authMiddleware],
     handler: controller.logout.bind(controller),
   })
+  app.post('/api/v1/auth/verify-email', controller.verifyEmail.bind(controller))
+  app.post('/api/v1/auth/resend-verification', controller.resendVerification.bind(controller))
+  app.post('/api/v1/auth/forgot-password', controller.forgotPassword.bind(controller))
+  app.post('/api/v1/auth/reset-password', controller.resetPassword.bind(controller))
 }
