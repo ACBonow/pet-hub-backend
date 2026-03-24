@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../shared/config/database'
+import type { Prisma } from '@prisma/client'
 import type {
   OrganizationCreateInput,
   OrganizationRecord,
@@ -42,7 +43,7 @@ const include = { responsiblePersons: true }
 
 export class PrismaOrganizationRepository implements IOrganizationRepository {
   async create(data: OrganizationCreateInput): Promise<OrganizationRecord> {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const org = await tx.organization.create({
         data: {
           name: data.name,

@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../shared/config/database'
+import type { Prisma } from '@prisma/client'
 import type {
   AddCoTutorInput,
   CoTutorRecord,
@@ -80,7 +81,7 @@ function mapPet(pet: any): PetRecord {
 
 export class PrismaPetRepository implements IPetRepository {
   async create(data: PetCreateInput): Promise<PetRecord> {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const pet = await tx.pet.create({
         data: {
           name: data.name,
@@ -140,7 +141,7 @@ export class PrismaPetRepository implements IPetRepository {
   }
 
   async transferTutorship(petId: string, data: TransferTutorshipInput): Promise<TutorshipRecord> {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.tutorship.updateMany({
         where: { petId, active: true },
         data: { active: false, endDate: new Date() },
