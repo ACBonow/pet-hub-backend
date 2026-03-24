@@ -18,6 +18,23 @@ export interface RefreshInput {
   refreshToken: string
 }
 
+export interface VerifyEmailInput {
+  token: string
+}
+
+export interface ResendVerificationInput {
+  email: string
+}
+
+export interface ForgotPasswordInput {
+  email: string
+}
+
+export interface ResetPasswordInput {
+  token: string
+  newPassword: string
+}
+
 export interface AuthTokens {
   accessToken: string
   refreshToken: string
@@ -33,4 +50,9 @@ export interface UserRecord {
   email: string
   passwordHash: string
   refreshToken: string | null
+  emailVerified: boolean
+  verificationToken: string | null
+  verificationTokenExpiresAt: Date | null
+  resetPasswordToken: string | null
+  resetPasswordTokenExpiresAt: Date | null
 }

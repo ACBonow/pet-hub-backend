@@ -18,6 +18,12 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  emailVerified              Boolean   @default(false) @map("email_verified")
+  verificationToken          String?   @map("verification_token")
+  verificationTokenExpiresAt DateTime? @map("verification_token_expires_at")
+  resetPasswordToken         String?   @map("reset_password_token")
+  resetPasswordTokenExpiresAt DateTime? @map("reset_password_token_expires_at")
+
   person Person?
 
   @@map("users")

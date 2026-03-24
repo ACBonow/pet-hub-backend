@@ -4,6 +4,7 @@
  * @description Local development server entry point.
  */
 
+import 'dotenv/config'
 import { buildApp } from './app'
 
 const PORT = Number(process.env.PORT) || 3000
