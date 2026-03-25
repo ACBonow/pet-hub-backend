@@ -14,6 +14,7 @@ import { HttpError } from '../../shared/errors/HttpError'
 import type { IEmailService } from '../../shared/utils/email'
 import type { IAuthRepository } from './auth.repository'
 import type {
+  AuthLoginResponse,
   AuthTokens,
   ForgotPasswordInput,
   LoginInput,
@@ -47,7 +48,7 @@ export class AuthService {
     private emailService: IEmailService,
   ) {}
 
-  async register(input: RegisterInput): Promise<AuthTokens> {
+  async register(input: RegisterInput): Promise<AuthLoginResponse> {
     const existing = await this.repository.findUserByEmail(input.email)
     if (existing) {
       throw HttpError.conflict('EMAIL_ALREADY_IN_USE', 'E-mail já está em uso.')
@@ -64,10 +65,10 @@ export class AuthService {
     const tokens = generateTokens(user.id)
     await this.repository.setRefreshToken(user.id, tokens.refreshToken)
 
-    return tokens
+    return { ...tokens, user: { id: user.id, email: user.email } }
   }
 
-  async login(input: LoginInput): Promise<AuthTokens> {
+  async login(input: LoginInput): Promise<AuthLoginResponse> {
     const user = await this.repository.findUserByEmail(input.email)
     if (!user) {
       throw HttpError.unauthorized('E-mail ou senha inválidos.')
@@ -85,10 +86,10 @@ export class AuthService {
     const tokens = generateTokens(user.id)
     await this.repository.setRefreshToken(user.id, tokens.refreshToken)
 
-    return tokens
+    return { ...tokens, user: { id: user.id, email: user.email } }
   }
 
-  async refresh(input: RefreshInput): Promise<{ accessToken: string }> {
+  async refresh(input: RefreshInput): Promise<AuthTokens> {
     const user = await this.repository.findUserByRefreshToken(input.refreshToken)
     if (!user) {
       throw HttpError.unauthorized('Refresh token inválido.')
@@ -103,7 +104,7 @@ export class AuthService {
     const tokens = generateTokens(user.id)
     await this.repository.setRefreshToken(user.id, tokens.refreshToken)
 
-    return { accessToken: tokens.accessToken }
+    return tokens
   }
 
   async logout(userId: string): Promise<void> {

@@ -40,6 +40,10 @@ export interface AuthTokens {
   refreshToken: string
 }
 
+export interface AuthLoginResponse extends AuthTokens {
+  user: { id: string; email: string }
+}
+
 export interface AuthUser {
   id: string
   email: string
