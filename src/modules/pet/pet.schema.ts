@@ -14,28 +14,16 @@ const TutorshipTypeEnum = z.enum(['OWNER', 'TUTOR', 'TEMPORARY_HOME'], {
   message: 'Tipo de tutoria deve ser OWNER, TUTOR ou TEMPORARY_HOME.',
 })
 
-export const CreatePetSchema = z
-  .object({
-    name: z.string().min(1, 'Nome é obrigatório.'),
-    species: z.string().min(1, 'Espécie é obrigatória.'),
-    breed: z.string().optional(),
-    gender: z.string().optional(),
-    birthDate: z.coerce.date().optional(),
-    microchip: z.string().optional(),
-    notes: z.string().optional(),
-    tutorType: TutorTypeEnum,
-    personTutorId: z.string().uuid('ID do tutor inválido.').optional(),
-    orgTutorId: z.string().uuid('ID da organização tutora inválido.').optional(),
-    tutorshipType: TutorshipTypeEnum,
-  })
-  .refine(
-    (data) => {
-      if (data.tutorType === 'PERSON') return !!data.personTutorId
-      if (data.tutorType === 'ORGANIZATION') return !!data.orgTutorId
-      return false
-    },
-    { message: 'ID do tutor correspondente ao tipo é obrigatório.' },
-  )
+export const CreatePetSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório.'),
+  species: z.string().min(1, 'Espécie é obrigatória.'),
+  breed: z.string().optional(),
+  gender: z.string().optional(),
+  birthDate: z.coerce.date().optional(),
+  microchip: z.string().optional(),
+  notes: z.string().optional(),
+  tutorshipType: TutorshipTypeEnum.default('OWNER'),
+})
 
 export const UpdatePetSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').optional(),
@@ -50,33 +38,33 @@ export const UpdatePetSchema = z.object({
 export const TransferTutorshipSchema = z
   .object({
     tutorType: TutorTypeEnum,
-    personTutorId: z.string().uuid('ID do tutor inválido.').optional(),
+    personCpf: z.string().optional(),
     orgTutorId: z.string().uuid('ID da organização tutora inválido.').optional(),
     tutorshipType: TutorshipTypeEnum,
     transferNotes: z.string().optional(),
   })
   .refine(
     (data) => {
-      if (data.tutorType === 'PERSON') return !!data.personTutorId
+      if (data.tutorType === 'PERSON') return !!data.personCpf
       if (data.tutorType === 'ORGANIZATION') return !!data.orgTutorId
       return false
     },
-    { message: 'ID do tutor correspondente ao tipo é obrigatório.' },
+    { message: 'CPF do tutor ou ID da organização é obrigatório.' },
   )
 
 export const AddCoTutorSchema = z
   .object({
     tutorType: TutorTypeEnum,
-    personTutorId: z.string().uuid('ID do tutor inválido.').optional(),
+    personCpf: z.string().optional(),
     orgTutorId: z.string().uuid('ID da organização tutora inválido.').optional(),
   })
   .refine(
     (data) => {
-      if (data.tutorType === 'PERSON') return !!data.personTutorId
+      if (data.tutorType === 'PERSON') return !!data.personCpf
       if (data.tutorType === 'ORGANIZATION') return !!data.orgTutorId
       return false
     },
-    { message: 'ID do tutor correspondente ao tipo é obrigatório.' },
+    { message: 'CPF do tutor ou ID da organização é obrigatório.' },
   )
 
 export type CreatePetBody = z.infer<typeof CreatePetSchema>

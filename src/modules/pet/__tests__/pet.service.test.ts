@@ -208,6 +208,45 @@ describe('PetService', () => {
     })
   })
 
+  // ── createForUser ─────────────────────────────────────────────────────────
+
+  describe('createForUser', () => {
+    it('should throw NOT_FOUND when user has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', { name: 'Rex', species: 'Cão' }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should create pet with logged-in user person as tutor', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.create.mockResolvedValueOnce(MOCK_PET)
+
+      const result = await service.createForUser('user-1', { name: 'Rex', species: 'Cão' })
+
+      expect(result).toEqual(MOCK_PET)
+      expect(petRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tutorType: 'PERSON',
+          personTutorId: 'person-1',
+          tutorshipType: 'OWNER',
+        }),
+      )
+    })
+
+    it('should use provided tutorshipType when specified', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.create.mockResolvedValueOnce(MOCK_PET)
+
+      await service.createForUser('user-1', { name: 'Rex', species: 'Cão', tutorshipType: 'TEMPORARY_HOME' })
+
+      expect(petRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tutorshipType: 'TEMPORARY_HOME' }),
+      )
+    })
+  })
+
   // ── findById ──────────────────────────────────────────────────────────────
 
   describe('findById', () => {
@@ -284,26 +323,37 @@ describe('PetService', () => {
       await expect(
         service.transferTutorship('nonexistent', {
           tutorType: 'PERSON',
-          personTutorId: 'person-1',
+          personCpf: '52998224725',
           tutorshipType: 'OWNER',
         }),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
-    it('should throw NOT_FOUND when new person tutor does not exist', async () => {
+    it('should throw TUTOR_REQUIRED when personCpf not provided for PERSON tutor', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
-      personRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
         service.transferTutorship('pet-1', {
           tutorType: 'PERSON',
-          personTutorId: 'nonexistent',
+          tutorshipType: 'OWNER',
+        }),
+      ).rejects.toMatchObject({ statusCode: 400, code: 'TUTOR_REQUIRED' })
+    })
+
+    it('should throw NOT_FOUND when new person tutor CPF does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByCpf.mockResolvedValueOnce(null)
+
+      await expect(
+        service.transferTutorship('pet-1', {
+          tutorType: 'PERSON',
+          personCpf: '52998224725',
           tutorshipType: 'OWNER',
         }),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
-    it('should create new active tutorship and deactivate old one', async () => {
+    it('should create new active tutorship using CPF-resolved person id', async () => {
       const newTutorship: TutorshipRecord = {
         ...MOCK_ACTIVE_TUTORSHIP,
         id: 'tutorship-2',
@@ -311,16 +361,17 @@ describe('PetService', () => {
         startDate: new Date('2026-03-01'),
       }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
-      personRepo.findById.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+      personRepo.findByCpf.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2', cpf: '07493124050' })
       petRepo.transferTutorship.mockResolvedValueOnce(newTutorship)
 
       const result = await service.transferTutorship('pet-1', {
         tutorType: 'PERSON',
-        personTutorId: 'person-2',
+        personCpf: '07493124050',
         tutorshipType: 'OWNER',
       })
 
       expect(result).toEqual(newTutorship)
+      expect(personRepo.findByCpf).toHaveBeenCalledWith('07493124050')
       expect(petRepo.transferTutorship).toHaveBeenCalledWith('pet-1', expect.objectContaining({
         personTutorId: 'person-2',
       }))
@@ -360,20 +411,38 @@ describe('PetService', () => {
       petRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.addCoTutor('nonexistent', { tutorType: 'PERSON', personTutorId: 'person-2' }),
+        service.addCoTutor('nonexistent', { tutorType: 'PERSON', personCpf: '52998224725' }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw TUTOR_REQUIRED when personCpf not provided for PERSON type', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+
+      await expect(
+        service.addCoTutor('pet-1', { tutorType: 'PERSON' }),
+      ).rejects.toMatchObject({ statusCode: 400, code: 'TUTOR_REQUIRED' })
+    })
+
+    it('should throw NOT_FOUND when co-tutor CPF does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByCpf.mockResolvedValueOnce(null)
+
+      await expect(
+        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
     it('should throw TUTOR_CONFLICT when co-tutor is same as active primary tutor', async () => {
-      petRepo.findById.mockResolvedValueOnce(MOCK_PET) // active tutorship has personTutorId: 'person-1'
-      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      // MOCK_PET has activeTutorship.personTutorId = 'person-1'
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByCpf.mockResolvedValueOnce(MOCK_PERSON) // resolves to person-1
 
       await expect(
-        service.addCoTutor('pet-1', { tutorType: 'PERSON', personTutorId: 'person-1' }),
+        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }),
       ).rejects.toMatchObject({ statusCode: 409, code: 'TUTOR_CONFLICT' })
     })
 
-    it('should add co-tutor when valid', async () => {
+    it('should add co-tutor using CPF-resolved person id', async () => {
       const coTutor: CoTutorRecord = {
         id: 'co-1',
         petId: 'pet-1',
@@ -383,12 +452,13 @@ describe('PetService', () => {
         assignedAt: new Date(),
       }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
-      personRepo.findById.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+      personRepo.findByCpf.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2', cpf: '07493124050' })
       petRepo.addCoTutor.mockResolvedValueOnce(coTutor)
 
-      const result = await service.addCoTutor('pet-1', { tutorType: 'PERSON', personTutorId: 'person-2' })
+      const result = await service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '07493124050' })
 
       expect(result).toEqual(coTutor)
+      expect(personRepo.findByCpf).toHaveBeenCalledWith('07493124050')
       expect(petRepo.addCoTutor).toHaveBeenCalledWith('pet-1', expect.objectContaining({
         personTutorId: 'person-2',
       }))

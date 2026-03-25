@@ -7,12 +7,12 @@
 import { prisma } from '../../shared/config/database'
 import type { Prisma } from '@prisma/client'
 import type {
-  AddCoTutorInput,
+  AddCoTutorRepoInput,
   CoTutorRecord,
   PetCreateInput,
   PetRecord,
   PetUpdateInput,
-  TransferTutorshipInput,
+  TransferTutorshipRepoInput,
   TutorshipRecord,
 } from './pet.types'
 
@@ -22,10 +22,10 @@ export interface IPetRepository {
   update(id: string, data: PetUpdateInput): Promise<PetRecord>
   delete(id: string): Promise<void>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
-  transferTutorship(petId: string, data: TransferTutorshipInput): Promise<TutorshipRecord>
+  transferTutorship(petId: string, data: TransferTutorshipRepoInput): Promise<TutorshipRecord>
   getTutorshipHistory(petId: string): Promise<TutorshipRecord[]>
   findActiveTutorship(petId: string): Promise<TutorshipRecord | null>
-  addCoTutor(petId: string, data: AddCoTutorInput): Promise<CoTutorRecord>
+  addCoTutor(petId: string, data: AddCoTutorRepoInput): Promise<CoTutorRecord>
   removeCoTutor(petId: string, coTutorId: string): Promise<void>
 }
 
@@ -140,7 +140,7 @@ export class PrismaPetRepository implements IPetRepository {
     await prisma.pet.update({ where: { id }, data: { photoUrl } })
   }
 
-  async transferTutorship(petId: string, data: TransferTutorshipInput): Promise<TutorshipRecord> {
+  async transferTutorship(petId: string, data: TransferTutorshipRepoInput): Promise<TutorshipRecord> {
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.tutorship.updateMany({
         where: { petId, active: true },
@@ -178,7 +178,7 @@ export class PrismaPetRepository implements IPetRepository {
     return tutorship ? mapTutorship(tutorship) : null
   }
 
-  async addCoTutor(petId: string, data: AddCoTutorInput): Promise<CoTutorRecord> {
+  async addCoTutor(petId: string, data: AddCoTutorRepoInput): Promise<CoTutorRecord> {
     const coTutor = await prisma.coTutor.create({
       data: {
         petId,

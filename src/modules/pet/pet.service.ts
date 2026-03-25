@@ -11,6 +11,7 @@ import type { IOrganizationRepository } from '../organization'
 import type {
   AddCoTutorInput,
   CoTutorRecord,
+  PetCreateForUserInput,
   PetCreateInput,
   PetRecord,
   PetUpdateInput,
@@ -25,29 +26,41 @@ export class PetService {
     private orgRepository: IOrganizationRepository,
   ) {}
 
-  private async validateTutor(input: { tutorType: string; personTutorId?: string; orgTutorId?: string }): Promise<void> {
+  private async validateOrgTutor(orgTutorId: string): Promise<void> {
+    const org = await this.orgRepository.findById(orgTutorId)
+    if (!org) {
+      throw HttpError.notFound('Organização tutora')
+    }
+  }
+
+  async create(input: PetCreateInput): Promise<PetRecord> {
     if (input.tutorType === 'PERSON') {
       if (!input.personTutorId) {
         throw HttpError.badRequest('TUTOR_REQUIRED', 'ID do tutor pessoa é obrigatório.')
       }
       const person = await this.personRepository.findById(input.personTutorId)
-      if (!person) {
-        throw HttpError.notFound('Tutor')
-      }
-    } else if (input.tutorType === 'ORGANIZATION') {
+      if (!person) throw HttpError.notFound('Tutor')
+    } else {
       if (!input.orgTutorId) {
         throw HttpError.badRequest('TUTOR_REQUIRED', 'ID da organização tutora é obrigatório.')
       }
-      const org = await this.orgRepository.findById(input.orgTutorId)
-      if (!org) {
-        throw HttpError.notFound('Organização tutora')
-      }
+      await this.validateOrgTutor(input.orgTutorId)
     }
+    return this.repository.create(input)
   }
 
-  async create(input: PetCreateInput): Promise<PetRecord> {
-    await this.validateTutor(input)
-    return this.repository.create(input)
+  async createForUser(userId: string, input: PetCreateForUserInput): Promise<PetRecord> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) {
+      throw HttpError.notFound('Perfil de pessoa do usuário')
+    }
+    const createInput: PetCreateInput = {
+      ...input,
+      tutorType: 'PERSON',
+      personTutorId: person.id,
+      tutorshipType: input.tutorshipType ?? 'OWNER',
+    }
+    return this.repository.create(createInput)
   }
 
   async findById(id: string): Promise<PetRecord> {
@@ -80,9 +93,28 @@ export class PetService {
       throw HttpError.notFound('Pet')
     }
 
-    await this.validateTutor(data)
+    let personTutorId: string | undefined
+    if (data.tutorType === 'PERSON') {
+      if (!data.personCpf) {
+        throw HttpError.badRequest('TUTOR_REQUIRED', 'CPF do novo tutor é obrigatório.')
+      }
+      const person = await this.personRepository.findByCpf(data.personCpf)
+      if (!person) throw HttpError.notFound('Tutor')
+      personTutorId = person.id
+    } else {
+      if (!data.orgTutorId) {
+        throw HttpError.badRequest('TUTOR_REQUIRED', 'ID da organização tutora é obrigatório.')
+      }
+      await this.validateOrgTutor(data.orgTutorId)
+    }
 
-    return this.repository.transferTutorship(petId, data)
+    return this.repository.transferTutorship(petId, {
+      tutorType: data.tutorType,
+      personTutorId,
+      orgTutorId: data.orgTutorId,
+      tutorshipType: data.tutorshipType,
+      transferNotes: data.transferNotes ?? null,
+    })
   }
 
   async getTutorshipHistory(petId: string): Promise<TutorshipRecord[]> {
@@ -99,7 +131,20 @@ export class PetService {
       throw HttpError.notFound('Pet')
     }
 
-    await this.validateTutor(data)
+    let personTutorId: string | undefined
+    if (data.tutorType === 'PERSON') {
+      if (!data.personCpf) {
+        throw HttpError.badRequest('TUTOR_REQUIRED', 'CPF do co-tutor é obrigatório.')
+      }
+      const person = await this.personRepository.findByCpf(data.personCpf)
+      if (!person) throw HttpError.notFound('Co-tutor')
+      personTutorId = person.id
+    } else {
+      if (!data.orgTutorId) {
+        throw HttpError.badRequest('TUTOR_REQUIRED', 'ID da organização co-tutora é obrigatório.')
+      }
+      await this.validateOrgTutor(data.orgTutorId)
+    }
 
     // Co-tutor cannot be the same as the active primary tutor
     const activeTutorship = pet.activeTutorship
@@ -107,7 +152,7 @@ export class PetService {
       if (
         data.tutorType === 'PERSON' &&
         activeTutorship.tutorType === 'PERSON' &&
-        activeTutorship.personTutorId === data.personTutorId
+        activeTutorship.personTutorId === personTutorId
       ) {
         throw HttpError.conflict('TUTOR_CONFLICT', 'O co-tutor não pode ser o mesmo que o tutor primário.')
       }
@@ -120,7 +165,11 @@ export class PetService {
       }
     }
 
-    return this.repository.addCoTutor(petId, data)
+    return this.repository.addCoTutor(petId, {
+      tutorType: data.tutorType,
+      personTutorId,
+      orgTutorId: data.orgTutorId,
+    })
   }
 
   async removeCoTutor(petId: string, coTutorId: string): Promise<void> {

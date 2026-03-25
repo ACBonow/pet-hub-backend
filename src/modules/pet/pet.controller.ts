@@ -24,7 +24,8 @@ export class PetController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const pet = await this.service.create(parsed.data)
+    const userId = (request as any).user!.id
+    const pet = await this.service.createForUser(userId, parsed.data)
     return reply.status(201).send({ success: true, data: pet })
   }
 

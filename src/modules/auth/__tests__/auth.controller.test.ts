@@ -32,6 +32,7 @@ describe('Auth routes', () => {
       jest.mocked(service.register).mockResolvedValueOnce({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        user: { id: 'user-1', email: 'new@example.com' },
       })
 
       const response = await app.inject({
@@ -101,6 +102,7 @@ describe('Auth routes', () => {
       jest.mocked(service.login).mockResolvedValueOnce({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        user: { id: 'user-1', email: 'test@example.com' },
       })
 
       const response = await app.inject({
@@ -159,7 +161,7 @@ describe('Auth routes', () => {
   describe('POST /api/v1/auth/refresh', () => {
     it('returns 200 with new accessToken', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.refresh).mockResolvedValueOnce({ accessToken: 'new-access-token' })
+      jest.mocked(service.refresh).mockResolvedValueOnce({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' })
 
       const response = await app.inject({
         method: 'POST',

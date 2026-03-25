@@ -61,6 +61,18 @@ export interface PetCreateInput {
   tutorshipType: TutorshipType
 }
 
+// Simplified input for createForUser — tutor is derived from the authenticated user
+export interface PetCreateForUserInput {
+  name: string
+  species: string
+  breed?: string
+  gender?: string
+  birthDate?: Date
+  microchip?: string
+  notes?: string
+  tutorshipType?: TutorshipType
+}
+
 export interface PetUpdateInput {
   name?: string
   species?: string
@@ -73,13 +85,29 @@ export interface PetUpdateInput {
 
 export interface TransferTutorshipInput {
   tutorType: TutorType
-  personTutorId?: string
+  personCpf?: string        // CPF used to look up the new person tutor
   orgTutorId?: string
   tutorshipType: TutorshipType
   transferNotes?: string
 }
 
+// Resolved version used by the repository after CPF lookup
+export interface TransferTutorshipRepoInput {
+  tutorType: TutorType
+  personTutorId?: string
+  orgTutorId?: string
+  tutorshipType: TutorshipType
+  transferNotes?: string | null
+}
+
 export interface AddCoTutorInput {
+  tutorType: TutorType
+  personCpf?: string        // CPF used to look up the co-tutor person
+  orgTutorId?: string
+}
+
+// Resolved version used by the repository after CPF lookup
+export interface AddCoTutorRepoInput {
   tutorType: TutorType
   personTutorId?: string
   orgTutorId?: string

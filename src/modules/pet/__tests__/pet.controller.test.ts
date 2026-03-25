@@ -52,8 +52,6 @@ const MOCK_CO_TUTOR = {
   assignedAt: new Date('2026-01-01').toISOString(),
 }
 
-const VALID_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-
 function makeAuthToken(userId = 'user-1'): string {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET ?? 'test-secret', { expiresIn: '15m' })
 }
@@ -74,19 +72,13 @@ describe('Pet routes', () => {
   describe('POST /api/v1/pets', () => {
     it('returns 201 with pet on successful creation', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.create).mockResolvedValueOnce(MOCK_PET as any)
+      jest.mocked(service.createForUser).mockResolvedValueOnce(MOCK_PET as any)
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          name: 'Rex',
-          species: 'Cão',
-          tutorType: 'PERSON',
-          personTutorId: VALID_UUID,
-          tutorshipType: 'OWNER',
-        },
+        payload: { name: 'Rex', species: 'Cão', tutorshipType: 'OWNER' },
       })
 
       expect(response.statusCode).toBe(201)
@@ -97,6 +89,21 @@ describe('Pet routes', () => {
       await app.close()
     })
 
+    it('returns 201 with default tutorshipType OWNER when not provided', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.createForUser).mockResolvedValueOnce(MOCK_PET as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { name: 'Rex', species: 'Cão' },
+      })
+
+      expect(response.statusCode).toBe(201)
+      await app.close()
+    })
+
     it('returns 400 when name is missing', async () => {
       const { app } = await buildTestApp()
 
@@ -104,73 +111,37 @@ describe('Pet routes', () => {
         method: 'POST',
         url: '/api/v1/pets',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          species: 'Cão',
-          tutorType: 'PERSON',
-          personTutorId: VALID_UUID,
-          tutorshipType: 'OWNER',
-        },
+        payload: { species: 'Cão' },
       })
 
       expect(response.statusCode).toBe(400)
       await app.close()
     })
 
-    it('returns 400 when tutorType is invalid', async () => {
+    it('returns 400 when species is missing', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          name: 'Rex',
-          species: 'Cão',
-          tutorType: 'INVALID',
-          personTutorId: VALID_UUID,
-          tutorshipType: 'OWNER',
-        },
+        payload: { name: 'Rex' },
       })
 
       expect(response.statusCode).toBe(400)
       await app.close()
     })
 
-    it('returns 400 when PERSON tutor has no personTutorId', async () => {
-      const { app } = await buildTestApp()
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/v1/pets',
-        headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          name: 'Rex',
-          species: 'Cão',
-          tutorType: 'PERSON',
-          tutorshipType: 'OWNER',
-        },
-      })
-
-      expect(response.statusCode).toBe(400)
-      await app.close()
-    })
-
-    it('returns 404 when tutor does not exist', async () => {
+    it('returns 404 when user has no person profile', async () => {
       const { app, service } = await buildTestApp()
       const { HttpError } = await import('../../../shared/errors/HttpError')
-      jest.mocked(service.create).mockRejectedValueOnce(HttpError.notFound('Tutor'))
+      jest.mocked(service.createForUser).mockRejectedValueOnce(HttpError.notFound('Perfil de pessoa do usuário'))
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          name: 'Rex',
-          species: 'Cão',
-          tutorType: 'PERSON',
-          personTutorId: VALID_UUID,
-          tutorshipType: 'OWNER',
-        },
+        payload: { name: 'Rex', species: 'Cão' },
       })
 
       expect(response.statusCode).toBe(404)
@@ -183,7 +154,7 @@ describe('Pet routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets',
-        payload: { name: 'Rex', species: 'Cão', tutorType: 'PERSON', personTutorId: VALID_UUID, tutorshipType: 'OWNER' },
+        payload: { name: 'Rex', species: 'Cão' },
       })
 
       expect(response.statusCode).toBe(401)
@@ -349,11 +320,7 @@ describe('Pet routes', () => {
         method: 'POST',
         url: '/api/v1/pets/pet-1/transfer-tutorship',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: {
-          tutorType: 'PERSON',
-          personTutorId: VALID_UUID,
-          tutorshipType: 'TUTOR',
-        },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725', tutorshipType: 'TUTOR' },
       })
 
       expect(response.statusCode).toBe(200)
@@ -364,14 +331,14 @@ describe('Pet routes', () => {
       await app.close()
     })
 
-    it('returns 400 when payload is invalid', async () => {
+    it('returns 400 when PERSON transfer has no personCpf', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets/pet-1/transfer-tutorship',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { tutorType: 'PERSON', tutorshipType: 'OWNER' }, // missing personTutorId
+        payload: { tutorType: 'PERSON', tutorshipType: 'OWNER' }, // missing personCpf
       })
 
       expect(response.statusCode).toBe(400)
@@ -387,7 +354,7 @@ describe('Pet routes', () => {
         method: 'POST',
         url: '/api/v1/pets/nonexistent/transfer-tutorship',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { tutorType: 'PERSON', personTutorId: VALID_UUID, tutorshipType: 'OWNER' },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725', tutorshipType: 'OWNER' },
       })
 
       expect(response.statusCode).toBe(404)
@@ -400,7 +367,7 @@ describe('Pet routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets/pet-1/transfer-tutorship',
-        payload: { tutorType: 'PERSON', personTutorId: VALID_UUID, tutorshipType: 'OWNER' },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725', tutorshipType: 'OWNER' },
       })
 
       expect(response.statusCode).toBe(401)
@@ -468,7 +435,7 @@ describe('Pet routes', () => {
         method: 'POST',
         url: '/api/v1/pets/pet-1/co-tutors',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { tutorType: 'PERSON', personTutorId: VALID_UUID },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725' },
       })
 
       expect(response.statusCode).toBe(201)
@@ -490,7 +457,7 @@ describe('Pet routes', () => {
         method: 'POST',
         url: '/api/v1/pets/pet-1/co-tutors',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { tutorType: 'PERSON', personTutorId: VALID_UUID },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725' },
       })
 
       expect(response.statusCode).toBe(409)
@@ -500,14 +467,14 @@ describe('Pet routes', () => {
       await app.close()
     })
 
-    it('returns 400 when payload is invalid', async () => {
+    it('returns 400 when PERSON co-tutor has no personCpf', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets/pet-1/co-tutors',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { tutorType: 'PERSON' }, // missing personTutorId
+        payload: { tutorType: 'PERSON' }, // missing personCpf
       })
 
       expect(response.statusCode).toBe(400)
@@ -520,7 +487,7 @@ describe('Pet routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/pets/pet-1/co-tutors',
-        payload: { tutorType: 'PERSON', personTutorId: VALID_UUID },
+        payload: { tutorType: 'PERSON', personCpf: '52998224725' },
       })
 
       expect(response.statusCode).toBe(401)
