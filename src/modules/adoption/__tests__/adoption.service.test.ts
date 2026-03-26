@@ -20,6 +20,9 @@ const MOCK_LISTING: AdoptionListingRecord = {
   personId: 'person-1',
   organizationId: null,
   description: 'Cachorro amigável procura lar.',
+  contactEmail: null,
+  contactPhone: null,
+  contactWhatsapp: null,
   status: 'AVAILABLE',
   createdAt: new Date('2026-03-01'),
   updatedAt: new Date('2026-03-01'),
@@ -31,6 +34,7 @@ const MOCK_PET = {
   species: 'Cão',
   breed: null,
   gender: null,
+  castrated: null,
   birthDate: null,
   photoUrl: null,
   microchip: null,
@@ -110,11 +114,13 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     create: jest.fn(),
     findById: jest.fn(),
     findByCnpj: jest.fn(),
+    findByPersonId: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     addPerson: jest.fn(),
     removePerson: jest.fn(),
     personCount: jest.fn(),
+    hasPerson: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
 }
@@ -313,6 +319,101 @@ describe('AdoptionService', () => {
       await service.delete('listing-1')
 
       expect(adoptionRepo.delete).toHaveBeenCalledWith('listing-1')
+    })
+  })
+
+  // ── createForUser ─────────────────────────────────────────────────────────
+
+  describe('createForUser', () => {
+    it('should throw NOT_FOUND when pet does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', { petId: 'nonexistent' }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw ALREADY_EXISTS when pet already has a listing', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(MOCK_LISTING)
+
+      await expect(
+        service.createForUser('user-1', { petId: 'pet-1' }),
+      ).rejects.toMatchObject({ statusCode: 409, code: 'ALREADY_EXISTS' })
+    })
+
+    it('should throw NOT_FOUND when user has no person profile', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(null)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', { petId: 'pet-1' }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should create listing as PERSON by default', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(null)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      adoptionRepo.create.mockResolvedValueOnce(MOCK_LISTING)
+
+      const result = await service.createForUser('user-1', {
+        petId: 'pet-1',
+        description: 'Cachorro amigável',
+        contactEmail: 'test@example.com',
+        contactWhatsapp: '51999999999',
+      })
+
+      expect(adoptionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          listerType: 'PERSON',
+          personId: 'person-1',
+          organizationId: undefined,
+          contactEmail: 'test@example.com',
+          contactWhatsapp: '51999999999',
+        }),
+      )
+      expect(result).toEqual(MOCK_LISTING)
+    })
+
+    it('should create listing as ORGANIZATION when organizationId is provided', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(null)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(true)
+      adoptionRepo.create.mockResolvedValueOnce({ ...MOCK_LISTING, listerType: 'ORGANIZATION', organizationId: 'org-1', personId: null })
+
+      const result = await service.createForUser('user-1', { petId: 'pet-1', organizationId: 'org-1' })
+
+      expect(adoptionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ listerType: 'ORGANIZATION', organizationId: 'org-1', personId: undefined }),
+      )
+      expect(result.listerType).toBe('ORGANIZATION')
+    })
+
+    it('should throw NOT_FOUND when organizationId does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(null)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', { petId: 'pet-1', organizationId: 'org-nonexistent' }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw FORBIDDEN when user is not a member of the organization', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      adoptionRepo.findByPetId.mockResolvedValueOnce(null)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(false)
+
+      await expect(
+        service.createForUser('user-1', { petId: 'pet-1', organizationId: 'org-1' }),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'FORBIDDEN' })
     })
   })
 })

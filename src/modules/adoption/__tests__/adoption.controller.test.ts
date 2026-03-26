@@ -21,13 +21,15 @@ const MOCK_LISTING = {
   personId: 'b1c2d3e4-f5a6-7890-abcd-ef1234567891',
   organizationId: null,
   description: 'Cachorro amigável procura lar.',
+  contactEmail: null,
+  contactPhone: null,
+  contactWhatsapp: null,
   status: 'AVAILABLE',
   createdAt: new Date('2026-03-01').toISOString(),
   updatedAt: new Date('2026-03-01').toISOString(),
 }
 
 const VALID_PET_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-const VALID_PERSON_UUID = 'b1c2d3e4-f5a6-7890-abcd-ef1234567891'
 const VALID_ORG_UUID = 'c1d2e3f4-a5b6-7890-abcd-ef1234567892'
 
 function makeAuthToken(userId = 'user-1'): string {
@@ -50,7 +52,7 @@ describe('Adoption routes', () => {
   describe('POST /api/v1/adoptions', () => {
     it('returns 201 with listing on successful creation', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.create).mockResolvedValueOnce(MOCK_LISTING as any)
+      jest.mocked(service.createForUser).mockResolvedValueOnce(MOCK_LISTING as any)
 
       const response = await app.inject({
         method: 'POST',
@@ -58,8 +60,6 @@ describe('Adoption routes', () => {
         headers: { authorization: `Bearer ${makeAuthToken()}` },
         body: {
           petId: VALID_PET_UUID,
-          listerType: 'PERSON',
-          personId: VALID_PERSON_UUID,
           description: 'Cachorro amigável procura lar.',
         },
       })
@@ -70,32 +70,55 @@ describe('Adoption routes', () => {
       expect(body.data.id).toBe('listing-1')
     })
 
-    it('returns 400 on invalid body', async () => {
+    it('returns 400 on invalid body (missing petId)', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/adoptions',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        body: { listerType: 'PERSON' }, // missing petId
+        body: { description: 'Faltando petId' },
       })
 
       expect(response.statusCode).toBe(400)
       expect(response.json().success).toBe(false)
     })
 
-    it('returns 400 when listerType is PERSON but personId is missing', async () => {
-      const { app } = await buildTestApp()
+    it('returns 201 when contactWhatsapp is provided', async () => {
+      const listingWithWhatsapp = { ...MOCK_LISTING, contactWhatsapp: '51999999999' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.createForUser).mockResolvedValueOnce(listingWithWhatsapp as any)
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/adoptions',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        body: { petId: VALID_PET_UUID, listerType: 'PERSON' },
+        body: { petId: VALID_PET_UUID, contactWhatsapp: '51999999999' },
       })
 
-      expect(response.statusCode).toBe(400)
-      expect(response.json().success).toBe(false)
+      expect(response.statusCode).toBe(201)
+      expect(response.json().data.contactWhatsapp).toBe('51999999999')
+    })
+
+    it('returns 201 when organizationId is provided', async () => {
+      const orgListing = {
+        ...MOCK_LISTING,
+        listerType: 'ORGANIZATION',
+        personId: null,
+        organizationId: VALID_ORG_UUID,
+      }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.createForUser).mockResolvedValueOnce(orgListing as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/adoptions',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { petId: VALID_PET_UUID, organizationId: VALID_ORG_UUID },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().data.listerType).toBe('ORGANIZATION')
     })
 
     it('returns 401 when not authenticated', async () => {
@@ -104,7 +127,7 @@ describe('Adoption routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/adoptions',
-        body: { petId: VALID_PET_UUID, listerType: 'PERSON', personId: VALID_PERSON_UUID },
+        body: { petId: VALID_PET_UUID },
       })
 
       expect(response.statusCode).toBe(401)
@@ -112,16 +135,32 @@ describe('Adoption routes', () => {
 
     it('returns 409 when pet already has a listing', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.create).mockRejectedValueOnce(HttpError.conflict('ALREADY_EXISTS', 'Já existe.'))
+      jest.mocked(service.createForUser).mockRejectedValueOnce(HttpError.conflict('ALREADY_EXISTS', 'Já existe.'))
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/adoptions',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        body: { petId: VALID_PET_UUID, listerType: 'PERSON', personId: VALID_PERSON_UUID },
+        body: { petId: VALID_PET_UUID },
       })
 
       expect(response.statusCode).toBe(409)
+    })
+
+    it('returns 403 when user is not a member of the organization', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.createForUser).mockRejectedValueOnce(
+        HttpError.forbidden('Você não tem permissão para publicar por esta organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/adoptions',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { petId: VALID_PET_UUID, organizationId: VALID_ORG_UUID },
+      })
+
+      expect(response.statusCode).toBe(403)
     })
   })
 

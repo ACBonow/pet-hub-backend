@@ -37,6 +37,7 @@ export interface PetRecord {
   species: string
   breed: string | null
   gender: string | null
+  castrated: boolean | null
   birthDate: Date | null
   photoUrl: string | null
   microchip: string | null
@@ -52,6 +53,7 @@ export interface PetCreateInput {
   species: string
   breed?: string
   gender?: string
+  castrated?: boolean
   birthDate?: Date
   microchip?: string
   notes?: string
@@ -67,6 +69,7 @@ export interface PetCreateForUserInput {
   species: string
   breed?: string
   gender?: string
+  castrated?: boolean
   birthDate?: Date
   microchip?: string
   notes?: string
@@ -78,6 +81,7 @@ export interface PetUpdateInput {
   species?: string
   breed?: string | null
   gender?: string | null
+  castrated?: boolean | null
   birthDate?: Date | null
   microchip?: string | null
   notes?: string | null

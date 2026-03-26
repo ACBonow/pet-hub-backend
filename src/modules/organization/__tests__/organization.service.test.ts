@@ -38,11 +38,13 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     create: jest.fn(),
     findById: jest.fn(),
     findByCnpj: jest.fn(),
+    findByPersonId: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     addPerson: jest.fn(),
     removePerson: jest.fn(),
     personCount: jest.fn(),
+    hasPerson: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
 }
@@ -326,6 +328,38 @@ describe('OrganizationService', () => {
       await service.removePerson('org-1', 'person-2')
 
       expect(orgRepo.removePerson).toHaveBeenCalledWith('org-1', 'person-2')
+    })
+  })
+
+  // ── findMyOrganizations ────────────────────────────────────────────────────
+
+  describe('findMyOrganizations', () => {
+    it('should return organizations where user is a member', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findByPersonId.mockResolvedValueOnce([MOCK_ORG])
+
+      const result = await service.findMyOrganizations('user-1')
+
+      expect(result).toEqual([MOCK_ORG])
+      expect(orgRepo.findByPersonId).toHaveBeenCalledWith('person-1')
+    })
+
+    it('should return empty array when user has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      const result = await service.findMyOrganizations('user-no-profile')
+
+      expect(result).toEqual([])
+      expect(orgRepo.findByPersonId).not.toHaveBeenCalled()
+    })
+
+    it('should return empty array when user has no organizations', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findByPersonId.mockResolvedValueOnce([])
+
+      const result = await service.findMyOrganizations('user-1')
+
+      expect(result).toEqual([])
     })
   })
 })

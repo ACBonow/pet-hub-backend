@@ -16,11 +16,13 @@ export interface IOrganizationRepository {
   create(data: OrganizationCreateInput): Promise<OrganizationRecord>
   findById(id: string): Promise<OrganizationRecord | null>
   findByCnpj(cnpj: string): Promise<OrganizationRecord | null>
+  findByPersonId(personId: string): Promise<OrganizationRecord[]>
   update(id: string, data: OrganizationUpdateInput): Promise<OrganizationRecord>
   delete(id: string): Promise<void>
   addPerson(organizationId: string, personId: string): Promise<void>
   removePerson(organizationId: string, personId: string): Promise<void>
   personCount(organizationId: string): Promise<number>
+  hasPerson(organizationId: string, personId: string): Promise<boolean>
 }
 
 function mapOrg(org: any): OrganizationRecord {
@@ -76,6 +78,14 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
     return org ? mapOrg(org) : null
   }
 
+  async findByPersonId(personId: string): Promise<OrganizationRecord[]> {
+    const memberships = await prisma.organizationPerson.findMany({
+      where: { personId },
+      include: { organization: { include } },
+    })
+    return memberships.map((m: any) => mapOrg(m.organization))
+  }
+
   async update(id: string, data: OrganizationUpdateInput): Promise<OrganizationRecord> {
     const org = await prisma.organization.update({ where: { id }, data, include })
     return mapOrg(org)
@@ -97,5 +107,12 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
 
   async personCount(organizationId: string): Promise<number> {
     return prisma.organizationPerson.count({ where: { organizationId } })
+  }
+
+  async hasPerson(organizationId: string, personId: string): Promise<boolean> {
+    const count = await prisma.organizationPerson.count({
+      where: { organizationId, personId },
+    })
+    return count > 0
   }
 }

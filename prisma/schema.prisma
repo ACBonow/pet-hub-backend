@@ -100,6 +100,7 @@ model Pet {
   species   String    // e.g. "Cão", "Gato", "Ave"
   breed     String?
   gender    String?
+  castrated Boolean?
   birthDate DateTime? @map("birth_date")
   photoUrl  String?   @map("photo_url")
   microchip String?   @unique
@@ -177,15 +178,18 @@ enum AdoptionStatus {
 }
 
 model AdoptionListing {
-  id             String        @id @default(uuid())
-  petId          String        @unique @map("pet_id")
-  listenerType   TutorType     @map("listener_type") // who listed it
-  personId       String?       @map("person_id")
-  organizationId String?       @map("organization_id")
-  description    String?
-  status         AdoptionStatus @default(AVAILABLE)
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  id               String         @id @default(uuid())
+  petId            String         @unique @map("pet_id")
+  listenerType     TutorType      @map("listener_type") // who listed it
+  personId         String?        @map("person_id")
+  organizationId   String?        @map("organization_id")
+  description      String?
+  contactEmail     String?        @map("contact_email")
+  contactPhone     String?        @map("contact_phone")
+  contactWhatsapp  String?        @map("contact_whatsapp")
+  status           AdoptionStatus @default(AVAILABLE)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
 
   pet          Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
   person       Person?       @relation("PersonAdoption", fields: [personId], references: [id])

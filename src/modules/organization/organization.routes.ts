@@ -14,6 +14,7 @@ export function registerOrganizationRoutes(app: FastifyInstance, service: Organi
   const auth = { preHandler: [authMiddleware] }
 
   app.post('/api/v1/organizations', { ...auth, handler: controller.create.bind(controller) })
+  app.get('/api/v1/organizations/my', { ...auth, handler: controller.getMyOrganizations.bind(controller) })
   app.get('/api/v1/organizations/:id', { ...auth, handler: controller.getById.bind(controller) })
   app.patch('/api/v1/organizations/:id', { ...auth, handler: controller.update.bind(controller) })
   app.delete('/api/v1/organizations/:id', { ...auth, handler: controller.delete.bind(controller) })

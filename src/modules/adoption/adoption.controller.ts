@@ -7,7 +7,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
   AdoptionListQuerySchema,
-  CreateAdoptionSchema,
+  CreateAdoptionForUserSchema,
   UpdateAdoptionStatusSchema,
 } from './adoption.schema'
 import type { AdoptionService } from './adoption.service'
@@ -16,14 +16,15 @@ export class AdoptionController {
   constructor(private service: AdoptionService) {}
 
   async create(request: FastifyRequest, reply: FastifyReply) {
-    const parsed = CreateAdoptionSchema.safeParse(request.body)
+    const parsed = CreateAdoptionForUserSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const listing = await this.service.create(parsed.data)
+    const userId = (request as any).user!.id
+    const listing = await this.service.createForUser(userId, parsed.data)
     return reply.status(201).send({ success: true, data: listing })
   }
 

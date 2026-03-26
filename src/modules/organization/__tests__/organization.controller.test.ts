@@ -477,4 +477,55 @@ describe('Organization routes', () => {
       await app.close()
     })
   })
+
+  // ── GET /api/v1/organizations/my ──────────────────────────────────────────
+
+  describe('GET /api/v1/organizations/my', () => {
+    it('returns 200 with user organizations', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findMyOrganizations).mockResolvedValueOnce([MOCK_ORG as any])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/my',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].id).toBe('org-1')
+
+      await app.close()
+    })
+
+    it('returns 200 with empty array when user has no organizations', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findMyOrganizations).mockResolvedValueOnce([])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/my',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(response.json().data).toEqual([])
+
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/my',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
 })

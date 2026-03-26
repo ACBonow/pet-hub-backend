@@ -39,6 +39,7 @@ const MOCK_PET: PetRecord = {
   species: 'Cão',
   breed: 'Labrador',
   gender: 'M',
+  castrated: null,
   birthDate: new Date('2022-01-01'),
   photoUrl: null,
   microchip: null,

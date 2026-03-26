@@ -32,6 +32,7 @@ const MOCK_PET = {
   species: 'Cão',
   breed: null,
   gender: null,
+  castrated: null,
   birthDate: null,
   photoUrl: null,
   microchip: null,

@@ -15,17 +15,34 @@ export interface AdoptionListingRecord {
   personId: string | null
   organizationId: string | null
   description: string | null
+  contactEmail: string | null
+  contactPhone: string | null
+  contactWhatsapp: string | null
   status: AdoptionStatus
   createdAt: Date
   updatedAt: Date
 }
 
+/** Internal input — all fields resolved by the service before hitting the repository */
 export interface AdoptionCreateInput {
   petId: string
   listerType: AdoptionListerType
-  personId?: string
-  organizationId?: string
-  description?: string
+  personId?: string | null
+  organizationId?: string | null
+  description?: string | null
+  contactEmail?: string | null
+  contactPhone?: string | null
+  contactWhatsapp?: string | null
+}
+
+/** Simplified input received from the controller — lister resolved from JWT */
+export interface AdoptionCreateForUserInput {
+  petId: string
+  description?: string | null
+  contactEmail?: string | null
+  contactPhone?: string | null
+  contactWhatsapp?: string | null
+  organizationId?: string | null
 }
 
 export interface AdoptionUpdateStatusInput {

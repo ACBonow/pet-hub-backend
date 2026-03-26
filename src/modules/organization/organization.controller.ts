@@ -23,6 +23,11 @@ export class OrganizationController {
     return reply.status(201).send({ success: true, data: org })
   }
 
+  async getMyOrganizations(request: FastifyRequest, reply: FastifyReply) {
+    const orgs = await this.service.findMyOrganizations(request.user!.id)
+    return reply.status(200).send({ success: true, data: orgs })
+  }
+
   async getById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const org = await this.service.findById(request.params.id)
     return reply.status(200).send({ success: true, data: org })

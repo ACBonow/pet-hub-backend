@@ -11,6 +11,7 @@ import type { IPersonRepository } from '../person'
 import type { IOrganizationRepository } from '../organization'
 import type {
   AdoptionCreateInput,
+  AdoptionCreateForUserInput,
   AdoptionListFilters,
   AdoptionListResult,
   AdoptionListingRecord,
@@ -25,7 +26,7 @@ export class AdoptionService {
     private orgRepository: IOrganizationRepository,
   ) {}
 
-  private async validateLister(input: { listerType: string; personId?: string; organizationId?: string }): Promise<void> {
+  private async validateLister(input: { listerType: string; personId?: string | null; organizationId?: string | null }): Promise<void> {
     if (input.listerType === 'PERSON') {
       if (!input.personId) {
         throw HttpError.badRequest('LISTER_REQUIRED', 'ID da pessoa listante é obrigatório.')
@@ -43,6 +44,44 @@ export class AdoptionService {
         throw HttpError.notFound('Organização listante')
       }
     }
+  }
+
+  async createForUser(userId: string, input: AdoptionCreateForUserInput): Promise<AdoptionListingRecord> {
+    const pet = await this.petRepository.findById(input.petId)
+    if (!pet) throw HttpError.notFound('Pet')
+
+    const existing = await this.repository.findByPetId(input.petId)
+    if (existing) throw HttpError.conflict('ALREADY_EXISTS', 'Este pet já possui uma listagem de adoção.')
+
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) throw HttpError.notFound('Perfil de pessoa do usuário')
+
+    let listerType: 'PERSON' | 'ORGANIZATION' = 'PERSON'
+    let personId: string | undefined = person.id
+    let organizationId: string | undefined = undefined
+
+    if (input.organizationId) {
+      const org = await this.orgRepository.findById(input.organizationId)
+      if (!org) throw HttpError.notFound('Organização')
+
+      const isMember = await this.orgRepository.hasPerson(input.organizationId, person.id)
+      if (!isMember) throw HttpError.forbidden('Você não tem permissão para publicar por esta organização.')
+
+      listerType = 'ORGANIZATION'
+      personId = undefined
+      organizationId = input.organizationId
+    }
+
+    return this.repository.create({
+      petId: input.petId,
+      listerType,
+      personId,
+      organizationId,
+      description: input.description ?? null,
+      contactEmail: input.contactEmail ?? null,
+      contactPhone: input.contactPhone ?? null,
+      contactWhatsapp: input.contactWhatsapp ?? null,
+    })
   }
 
   async create(input: AdoptionCreateInput): Promise<AdoptionListingRecord> {

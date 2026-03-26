@@ -33,6 +33,7 @@ const MOCK_PET = {
   species: 'Cão',
   breed: 'Labrador',
   gender: 'M',
+  castrated: null,
   birthDate: new Date('2022-01-01').toISOString(),
   photoUrl: null,
   microchip: null,

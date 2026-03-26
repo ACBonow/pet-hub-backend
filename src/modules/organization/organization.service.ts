@@ -80,6 +80,12 @@ export class OrganizationService {
     await this.repository.delete(id)
   }
 
+  async findMyOrganizations(userId: string): Promise<OrganizationRecord[]> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) return []
+    return this.repository.findByPersonId(person.id)
+  }
+
   async addPerson(organizationId: string, personId: string): Promise<void> {
     const org = await this.repository.findById(organizationId)
     if (!org) {
