@@ -5,6 +5,7 @@
  */
 
 import { HttpError } from '../../shared/errors/HttpError'
+import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
 import type { IPetRepository } from './pet.repository'
 import type { IPersonRepository } from '../person'
 import type { IOrganizationRepository } from '../organization'
@@ -186,5 +187,26 @@ export class PetService {
       throw HttpError.notFound('Pet')
     }
     await this.repository.removeCoTutor(petId, coTutorId)
+  }
+
+  async uploadPhoto(petId: string, file: Buffer, mimeType: string): Promise<PetRecord> {
+    const pet = await this.repository.findById(petId)
+    if (!pet) {
+      throw HttpError.notFound('Pet')
+    }
+
+    if (pet.photoUrl) {
+      const oldPath = extractPathFromUrl(pet.photoUrl, 'pet-images')
+      await deleteFile('pet-images', oldPath).catch(() => {})
+    }
+
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${petId}/${Date.now()}.${ext}`
+    const photoUrl = await uploadFile('pet-images', path, file, mimeType)
+
+    await this.repository.updatePhotoUrl(petId, photoUrl)
+
+    const updated = await this.repository.findById(petId)
+    return updated!
   }
 }

@@ -10,6 +10,13 @@ import type { IOrganizationRepository } from '../../organization'
 import type { PetRecord, TutorshipRecord, CoTutorRecord } from '../pet.types'
 import { PetService } from '../pet.service'
 
+jest.mock('../../../shared/utils/storage', () => ({
+  uploadFile: jest.fn(),
+  deleteFile: jest.fn(),
+  extractPathFromUrl: jest.fn(),
+}))
+import * as storage from '../../../shared/utils/storage'
+
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const MOCK_ACTIVE_TUTORSHIP: TutorshipRecord = {
@@ -517,6 +524,93 @@ describe('PetService', () => {
       await service.removeCoTutor('pet-1', 'co-1')
 
       expect(petRepo.removeCoTutor).toHaveBeenCalledWith('pet-1', 'co-1')
+    })
+  })
+
+  // ── uploadPhoto ───────────────────────────────────────────────────────────
+
+  describe('uploadPhoto', () => {
+    const FILE = Buffer.from('fake-jpeg')
+    const MIME = 'image/jpeg'
+    const PHOTO_URL = 'https://storage.example.com/pet-images/pet-1/123.jpg'
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('should throw NOT_FOUND when pet does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.uploadPhoto('nonexistent', FILE, MIME)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should upload file and update photoUrl', async () => {
+      petRepo.findById
+        .mockResolvedValueOnce(MOCK_PET)
+        .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      const result = await service.uploadPhoto('pet-1', FILE, MIME)
+
+      expect(storage.uploadFile).toHaveBeenCalledWith(
+        'pet-images',
+        expect.stringMatching(/^pet-1\/\d+\.jpg$/),
+        FILE,
+        MIME,
+      )
+      expect(petRepo.updatePhotoUrl).toHaveBeenCalledWith('pet-1', PHOTO_URL)
+      expect(result.photoUrl).toBe(PHOTO_URL)
+    })
+
+    it('should delete old photo before uploading new one', async () => {
+      const petWithPhoto = { ...MOCK_PET, photoUrl: 'https://storage.example.com/pet-images/pet-1/old.jpg' }
+      petRepo.findById
+        .mockResolvedValueOnce(petWithPhoto)
+        .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
+      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('pet-1/old.jpg')
+      ;(storage.deleteFile as jest.Mock).mockResolvedValueOnce(undefined)
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await service.uploadPhoto('pet-1', FILE, MIME)
+
+      expect(storage.extractPathFromUrl).toHaveBeenCalledWith(petWithPhoto.photoUrl, 'pet-images')
+      expect(storage.deleteFile).toHaveBeenCalledWith('pet-images', 'pet-1/old.jpg')
+    })
+
+    it('should continue upload even if old photo deletion fails', async () => {
+      const petWithPhoto = { ...MOCK_PET, photoUrl: 'https://storage.example.com/pet-images/pet-1/old.jpg' }
+      petRepo.findById
+        .mockResolvedValueOnce(petWithPhoto)
+        .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
+      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('pet-1/old.jpg')
+      ;(storage.deleteFile as jest.Mock).mockRejectedValueOnce(new Error('Storage error'))
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await expect(service.uploadPhoto('pet-1', FILE, MIME)).resolves.toBeDefined()
+      expect(storage.uploadFile).toHaveBeenCalled()
+    })
+
+    it('should use correct extension for png files', async () => {
+      petRepo.findById
+        .mockResolvedValueOnce(MOCK_PET)
+        .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await service.uploadPhoto('pet-1', FILE, 'image/png')
+
+      expect(storage.uploadFile).toHaveBeenCalledWith(
+        'pet-images',
+        expect.stringMatching(/^pet-1\/\d+\.png$/),
+        FILE,
+        'image/png',
+      )
     })
   })
 })

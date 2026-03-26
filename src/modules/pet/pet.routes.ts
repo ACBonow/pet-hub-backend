@@ -22,4 +22,5 @@ export function registerPetRoutes(app: FastifyInstance, service: PetService): vo
   app.get('/api/v1/pets/:id/tutorship-history', { ...auth, handler: controller.getTutorshipHistory.bind(controller) })
   app.post('/api/v1/pets/:id/co-tutors', { ...auth, handler: controller.addCoTutor.bind(controller) })
   app.delete('/api/v1/pets/:id/co-tutors/:coTutorId', { ...auth, handler: controller.removeCoTutor.bind(controller) })
+  app.post('/api/v1/pets/:id/photo', { ...auth, handler: controller.uploadPhoto.bind(controller) })
 }

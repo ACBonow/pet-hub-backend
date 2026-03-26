@@ -56,6 +56,20 @@ function makeAuthToken(userId = 'user-1'): string {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET ?? 'test-secret', { expiresIn: '15m' })
 }
 
+function makeMultipartBody(
+  fileContent: Buffer,
+  filename: string,
+  mimeType: string,
+): { payload: Buffer; headers: Record<string, string> } {
+  const boundary = 'test-boundary-abc123'
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileContent,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ])
+  return { payload, headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } }
+}
+
 async function buildTestApp() {
   MockedPetService.mockClear()
   const app = buildApp()
@@ -601,6 +615,110 @@ describe('Pet routes', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/pets/pet-1/co-tutors/co-1',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── POST /api/v1/pets/:id/photo ───────────────────────────────────────────
+
+  describe('POST /api/v1/pets/:id/photo', () => {
+    it('returns 200 with updated pet on valid upload', async () => {
+      const { app, service } = await buildTestApp()
+      const petWithPhoto = { ...MOCK_PET, photoUrl: 'https://storage.example.com/pet-images/pet-1/123.jpg' }
+      jest.mocked(service.uploadPhoto).mockResolvedValueOnce(petWithPhoto as any)
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets/pet-1/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.photoUrl).toBe(petWithPhoto.photoUrl)
+      expect(jest.mocked(service.uploadPhoto)).toHaveBeenCalledWith(
+        'pet-1',
+        expect.any(Buffer),
+        'image/jpeg',
+      )
+
+      await app.close()
+    })
+
+    it('returns 400 when multipart has no file field', async () => {
+      const { app } = await buildTestApp()
+
+      // Valid multipart boundary but no file part
+      const boundary = 'test-boundary-empty'
+      const payload = Buffer.from(`--${boundary}--\r\n`)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets/pet-1/photo',
+        headers: {
+          authorization: `Bearer ${makeAuthToken()}`,
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+        },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+      const body = response.json()
+      expect(body.error.code).toBe('NO_FILE')
+
+      await app.close()
+    })
+
+    it('returns 400 when file type is not an image', async () => {
+      const { app } = await buildTestApp()
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('pdf-content'), 'doc.pdf', 'application/pdf')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets/pet-1/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+      const body = response.json()
+      expect(body.error.code).toBe('INVALID_FILE_TYPE')
+
+      await app.close()
+    })
+
+    it('returns 404 when pet not found', async () => {
+      const { app, service } = await buildTestApp()
+      const { HttpError } = await import('../../../shared/errors/HttpError')
+      jest.mocked(service.uploadPhoto).mockRejectedValueOnce(HttpError.notFound('Pet'))
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets/nonexistent/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/pets/pet-1/photo',
       })
 
       expect(response.statusCode).toBe(401)
