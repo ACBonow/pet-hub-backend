@@ -25,6 +25,12 @@ function mapListing(row: any): AdoptionListingRecord {
   return {
     id: row.id,
     petId: row.petId,
+    petName: row.pet?.name ?? '',
+    species: row.pet?.species ?? '',
+    breed: row.pet?.breed ?? null,
+    photoUrl: row.pet?.photoUrl ?? null,
+    gender: row.pet?.gender ?? null,
+    castrated: row.pet?.castrated ?? null,
     listerType: row.listenerType as 'PERSON' | 'ORGANIZATION',
     personId: row.personId,
     organizationId: row.organizationId,
@@ -52,17 +58,18 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
         contactWhatsapp: data.contactWhatsapp ?? null,
         status: 'AVAILABLE',
       },
+      include: { pet: true },
     })
     return mapListing(row)
   }
 
   async findById(id: string): Promise<AdoptionListingRecord | null> {
-    const row = await prisma.adoptionListing.findUnique({ where: { id } })
+    const row = await prisma.adoptionListing.findUnique({ where: { id }, include: { pet: true } })
     return row ? mapListing(row) : null
   }
 
   async findByPetId(petId: string): Promise<AdoptionListingRecord | null> {
-    const row = await prisma.adoptionListing.findUnique({ where: { petId } })
+    const row = await prisma.adoptionListing.findUnique({ where: { petId }, include: { pet: true } })
     return row ? mapListing(row) : null
   }
 
@@ -77,6 +84,7 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
+        include: { pet: true },
       }),
       prisma.adoptionListing.count({ where }),
     ])
@@ -88,6 +96,7 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
     const row = await prisma.adoptionListing.update({
       where: { id },
       data: { status: status as any },
+      include: { pet: true },
     })
     return mapListing(row)
   }

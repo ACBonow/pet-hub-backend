@@ -11,6 +11,12 @@ export type AdoptionListerType = 'PERSON' | 'ORGANIZATION'
 export interface AdoptionListingRecord {
   id: string
   petId: string
+  petName: string
+  species: string
+  breed: string | null
+  photoUrl: string | null
+  gender: string | null
+  castrated: boolean | null
   listerType: AdoptionListerType
   personId: string | null
   organizationId: string | null

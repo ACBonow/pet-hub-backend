@@ -16,6 +16,12 @@ import { AdoptionService } from '../adoption.service'
 const MOCK_LISTING: AdoptionListingRecord = {
   id: 'listing-1',
   petId: 'pet-1',
+  petName: 'Rex',
+  species: 'Cão',
+  breed: null,
+  photoUrl: null,
+  gender: null,
+  castrated: null,
   listerType: 'PERSON',
   personId: 'person-1',
   organizationId: null,
