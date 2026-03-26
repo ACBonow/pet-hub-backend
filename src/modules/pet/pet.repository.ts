@@ -19,6 +19,7 @@ import type {
 export interface IPetRepository {
   create(data: PetCreateInput): Promise<PetRecord>
   findById(id: string): Promise<PetRecord | null>
+  findByPersonId(personId: string): Promise<PetRecord[]>
   update(id: string, data: PetUpdateInput): Promise<PetRecord>
   delete(id: string): Promise<void>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
@@ -113,6 +114,16 @@ export class PrismaPetRepository implements IPetRepository {
   async findById(id: string): Promise<PetRecord | null> {
     const pet = await prisma.pet.findUnique({ where: { id }, include: tutorshipInclude })
     return pet ? mapPet(pet) : null
+  }
+
+  async findByPersonId(personId: string): Promise<PetRecord[]> {
+    const pets = await prisma.pet.findMany({
+      where: {
+        tutorships: { some: { personTutorId: personId, active: true } },
+      },
+      include: tutorshipInclude,
+    })
+    return pets.map(mapPet)
   }
 
   async update(id: string, data: PetUpdateInput): Promise<PetRecord> {

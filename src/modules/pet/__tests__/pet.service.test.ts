@@ -70,6 +70,7 @@ function makePetRepo(overrides: Partial<IPetRepository> = {}): jest.Mocked<IPetR
   return {
     create: jest.fn(),
     findById: jest.fn(),
+    findByPersonId: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     updatePhotoUrl: jest.fn(),
@@ -462,6 +463,38 @@ describe('PetService', () => {
       expect(petRepo.addCoTutor).toHaveBeenCalledWith('pet-1', expect.objectContaining({
         personTutorId: 'person-2',
       }))
+    })
+  })
+
+  // ── findByUser ────────────────────────────────────────────────────────────
+
+  describe('findByUser', () => {
+    it('should throw NOT_FOUND when user has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.findByUser('user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should return list of pets for the user', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.findByPersonId.mockResolvedValueOnce([MOCK_PET])
+
+      const result = await service.findByUser('user-1')
+
+      expect(result).toEqual([MOCK_PET])
+      expect(petRepo.findByPersonId).toHaveBeenCalledWith('person-1')
+    })
+
+    it('should return empty list when user has no pets', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      petRepo.findByPersonId.mockResolvedValueOnce([])
+
+      const result = await service.findByUser('user-1')
+
+      expect(result).toEqual([])
     })
   })
 

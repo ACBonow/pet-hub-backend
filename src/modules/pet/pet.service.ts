@@ -63,6 +63,14 @@ export class PetService {
     return this.repository.create(createInput)
   }
 
+  async findByUser(userId: string): Promise<PetRecord[]> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) {
+      throw HttpError.notFound('Perfil de pessoa do usuário')
+    }
+    return this.repository.findByPersonId(person.id)
+  }
+
   async findById(id: string): Promise<PetRecord> {
     const pet = await this.repository.findById(id)
     if (!pet) {

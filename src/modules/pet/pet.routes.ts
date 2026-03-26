@@ -13,6 +13,7 @@ export function registerPetRoutes(app: FastifyInstance, service: PetService): vo
   const controller = new PetController(service)
   const auth = { preHandler: [authMiddleware] }
 
+  app.get('/api/v1/pets', { ...auth, handler: controller.listMyPets.bind(controller) })
   app.post('/api/v1/pets', { ...auth, handler: controller.create.bind(controller) })
   app.get('/api/v1/pets/:id', { ...auth, handler: controller.getById.bind(controller) })
   app.patch('/api/v1/pets/:id', { ...auth, handler: controller.update.bind(controller) })

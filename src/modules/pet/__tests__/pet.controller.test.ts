@@ -67,6 +67,74 @@ async function buildTestApp() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Pet routes', () => {
+  // ── GET /api/v1/pets ──────────────────────────────────────────────────────
+
+  describe('GET /api/v1/pets', () => {
+    it('returns 200 with list of pets', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findByUser).mockResolvedValueOnce([MOCK_PET] as any)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(Array.isArray(body.data)).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].id).toBe('pet-1')
+
+      await app.close()
+    })
+
+    it('returns 200 with empty array when user has no pets', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findByUser).mockResolvedValueOnce([])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.data).toEqual([])
+
+      await app.close()
+    })
+
+    it('returns 404 when user has no person profile', async () => {
+      const { app, service } = await buildTestApp()
+      const { HttpError } = await import('../../../shared/errors/HttpError')
+      jest.mocked(service.findByUser).mockRejectedValueOnce(HttpError.notFound('Perfil de pessoa do usuário'))
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/pets',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
   // ── POST /api/v1/pets ─────────────────────────────────────────────────────
 
   describe('POST /api/v1/pets', () => {

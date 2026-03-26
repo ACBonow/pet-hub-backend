@@ -16,6 +16,12 @@ import type { PetService } from './pet.service'
 export class PetController {
   constructor(private service: PetService) {}
 
+  async listMyPets(request: FastifyRequest, reply: FastifyReply) {
+    const userId = (request as any).user!.id
+    const pets = await this.service.findByUser(userId)
+    return reply.status(200).send({ success: true, data: pets })
+  }
+
   async create(request: FastifyRequest, reply: FastifyReply) {
     const parsed = CreatePetSchema.safeParse(request.body)
     if (!parsed.success) {
