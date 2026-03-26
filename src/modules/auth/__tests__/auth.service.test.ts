@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import type { IAuthRepository } from '../auth.repository'
 import type { IEmailService } from '../../../shared/utils/email'
+import type { IPersonRepository } from '../../person'
 import type { UserRecord } from '../auth.types'
 import { AuthService } from '../auth.service'
 
@@ -33,6 +34,16 @@ const UNVERIFIED_USER: UserRecord = {
   emailVerified: false,
   verificationToken: 'verify-token-abc',
   verificationTokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+}
+
+const MOCK_PERSON_RECORD = {
+  id: 'person-1',
+  userId: 'user-1',
+  name: 'João Silva',
+  cpf: '52998224725',
+  phone: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
 }
 
 function makeRepo(overrides: Partial<IAuthRepository> = {}): jest.Mocked<IAuthRepository> {
@@ -61,43 +72,88 @@ function makeEmail(overrides: Partial<IEmailService> = {}): jest.Mocked<IEmailSe
   } as jest.Mocked<IEmailService>
 }
 
+function makePersonRepo(overrides: Partial<IPersonRepository> = {}): jest.Mocked<IPersonRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByUserId: jest.fn(),
+    findByCpf: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IPersonRepository>
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('AuthService', () => {
   let service: AuthService
   let repo: jest.Mocked<IAuthRepository>
   let email: jest.Mocked<IEmailService>
+  let personRepo: jest.Mocked<IPersonRepository>
 
   beforeEach(() => {
     repo = makeRepo()
     email = makeEmail()
-    service = new AuthService(repo, email)
+    personRepo = makePersonRepo()
+    service = new AuthService(repo, email, personRepo)
   })
 
   // ── register ──────────────────────────────────────────────────────────────
 
   describe('register', () => {
+    const VALID_INPUT = {
+      email: 'new@example.com',
+      password: 'password123',
+      name: 'João Silva',
+      cpf: '52998224725',
+    }
+
     it('throws ConflictError if email already in use', async () => {
       repo.findUserByEmail.mockResolvedValueOnce(MOCK_USER)
 
       await expect(
-        service.register({ email: 'test@example.com', password: 'password123' }),
+        service.register({ ...VALID_INPUT, email: 'test@example.com' }),
       ).rejects.toMatchObject({ statusCode: 409, code: 'EMAIL_ALREADY_IN_USE' })
     })
 
-    it('creates user with hashed password, sends verification email and returns tokens', async () => {
+    it('throws INVALID_CPF when CPF fails check-digit', async () => {
       repo.findUserByEmail.mockResolvedValueOnce(null)
+
+      await expect(
+        service.register({ ...VALID_INPUT, cpf: '11111111111' }),
+      ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_CPF' })
+    })
+
+    it('throws CPF_ALREADY_IN_USE when CPF is already registered', async () => {
+      repo.findUserByEmail.mockResolvedValueOnce(null)
+      personRepo.findByCpf.mockResolvedValueOnce(MOCK_PERSON_RECORD)
+
+      await expect(
+        service.register(VALID_INPUT),
+      ).rejects.toMatchObject({ statusCode: 409, code: 'CPF_ALREADY_IN_USE' })
+    })
+
+    it('creates user with hashed password, creates person, sends verification email and returns tokens + person', async () => {
+      repo.findUserByEmail.mockResolvedValueOnce(null)
+      personRepo.findByCpf.mockResolvedValueOnce(null)
       repo.createUser.mockResolvedValueOnce({ ...UNVERIFIED_USER })
       repo.setRefreshToken.mockResolvedValueOnce(undefined)
       repo.setVerificationToken.mockResolvedValueOnce(undefined)
+      personRepo.create.mockResolvedValueOnce(MOCK_PERSON_RECORD)
       mockedBcrypt.hash.mockResolvedValueOnce('$2b$10$hashed' as never)
 
-      const result = await service.register({ email: 'new@example.com', password: 'password123' })
+      const result = await service.register(VALID_INPUT)
 
       expect(result).toHaveProperty('accessToken')
       expect(result).toHaveProperty('refreshToken')
+      expect(result).toHaveProperty('person')
+      expect(result.person?.name).toBe('João Silva')
       expect(repo.createUser).toHaveBeenCalledWith('new@example.com', '$2b$10$hashed')
       expect(repo.createUser.mock.calls[0][1]).not.toBe('password123')
+      expect(personRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: UNVERIFIED_USER.id, name: 'João Silva', cpf: '52998224725' }),
+      )
       expect(repo.setVerificationToken).toHaveBeenCalledWith(
         UNVERIFIED_USER.id,
         expect.any(String),
@@ -139,16 +195,29 @@ describe('AuthService', () => {
       ).rejects.toMatchObject({ statusCode: 403, code: 'EMAIL_NOT_VERIFIED' })
     })
 
-    it('returns tokens on valid credentials with verified email', async () => {
+    it('returns tokens and person on valid credentials with verified email', async () => {
       repo.findUserByEmail.mockResolvedValueOnce(MOCK_USER)
       repo.setRefreshToken.mockResolvedValueOnce(undefined)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON_RECORD)
       mockedBcrypt.compare.mockResolvedValueOnce(true as never)
 
       const result = await service.login({ email: 'test@example.com', password: 'correctpassword' })
 
       expect(result).toHaveProperty('accessToken')
       expect(result).toHaveProperty('refreshToken')
+      expect(result.person?.id).toBe('person-1')
       expect(repo.setRefreshToken).toHaveBeenCalledWith('user-1', expect.any(String))
+    })
+
+    it('returns person as null when user has no person profile', async () => {
+      repo.findUserByEmail.mockResolvedValueOnce(MOCK_USER)
+      repo.setRefreshToken.mockResolvedValueOnce(undefined)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+      mockedBcrypt.compare.mockResolvedValueOnce(true as never)
+
+      const result = await service.login({ email: 'test@example.com', password: 'correctpassword' })
+
+      expect(result.person).toBeNull()
     })
   })
 
@@ -215,7 +284,7 @@ describe('AuthService', () => {
     it('throws BadRequestError if token is expired', async () => {
       const expiredUser: UserRecord = {
         ...UNVERIFIED_USER,
-        verificationTokenExpiresAt: new Date(Date.now() - 1000), // expired 1 second ago
+        verificationTokenExpiresAt: new Date(Date.now() - 1000),
       }
       repo.findUserByVerificationToken.mockResolvedValueOnce(expiredUser)
 
@@ -246,7 +315,7 @@ describe('AuthService', () => {
     })
 
     it('does nothing if email is already verified', async () => {
-      repo.findUserByEmail.mockResolvedValueOnce(MOCK_USER) // emailVerified: true
+      repo.findUserByEmail.mockResolvedValueOnce(MOCK_USER)
 
       await service.resendVerification({ email: MOCK_USER.email })
 

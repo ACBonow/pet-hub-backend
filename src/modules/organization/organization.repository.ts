@@ -57,11 +57,12 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
         include,
       })
 
+      // responsiblePersonId is always resolved by the service before reaching the repository
       await tx.organizationPerson.create({
-        data: { organizationId: org.id, personId: data.responsiblePersonId },
+        data: { organizationId: org.id, personId: data.responsiblePersonId! },
       })
 
-      return mapOrg({ ...org, responsiblePersons: [{ organizationId: org.id, personId: data.responsiblePersonId, assignedAt: new Date() }] })
+      return mapOrg({ ...org, responsiblePersons: [{ organizationId: org.id, personId: data.responsiblePersonId!, assignedAt: new Date() }] })
     })
   }
 

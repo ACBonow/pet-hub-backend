@@ -3,6 +3,7 @@
  * @file auth.service.ts
  * @description Business logic for authentication: register, login, token refresh, logout,
  *              email verification and password recovery.
+ *              Register creates both User and Person atomically — every user has a profile.
  */
 
 import bcrypt from 'bcrypt'
@@ -11,7 +12,9 @@ import jwt, { type SignOptions } from 'jsonwebtoken'
 import { AppError } from '../../shared/errors/AppError'
 import { env } from '../../shared/config/env'
 import { HttpError } from '../../shared/errors/HttpError'
+import { sanitizeCpf, validateCpf } from '../../shared/validators/cpf.validator'
 import type { IEmailService } from '../../shared/utils/email'
+import type { IPersonRepository } from '../person'
 import type { IAuthRepository } from './auth.repository'
 import type {
   AuthLoginResponse,
@@ -46,6 +49,7 @@ export class AuthService {
   constructor(
     private repository: IAuthRepository,
     private emailService: IEmailService,
+    private personRepository: IPersonRepository,
   ) {}
 
   async register(input: RegisterInput): Promise<AuthLoginResponse> {
@@ -54,8 +58,25 @@ export class AuthService {
       throw HttpError.conflict('EMAIL_ALREADY_IN_USE', 'E-mail já está em uso.')
     }
 
+    const cpf = sanitizeCpf(input.cpf)
+    if (!validateCpf(cpf)) {
+      throw HttpError.badRequest('INVALID_CPF', 'O CPF informado não é válido.')
+    }
+
+    const existingPerson = await this.personRepository.findByCpf(cpf)
+    if (existingPerson) {
+      throw HttpError.conflict('CPF_ALREADY_IN_USE', 'Este CPF já está cadastrado.')
+    }
+
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS)
     const user = await this.repository.createUser(input.email, passwordHash)
+
+    const person = await this.personRepository.create({
+      userId: user.id,
+      name: input.name,
+      cpf,
+      phone: input.phone,
+    })
 
     const verificationToken = generateSecureToken()
     const verificationTokenExpiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS)
@@ -65,7 +86,11 @@ export class AuthService {
     const tokens = generateTokens(user.id)
     await this.repository.setRefreshToken(user.id, tokens.refreshToken)
 
-    return { ...tokens, user: { id: user.id, email: user.email } }
+    return {
+      ...tokens,
+      user: { id: user.id, email: user.email },
+      person: { id: person.id, name: person.name, cpf: person.cpf },
+    }
   }
 
   async login(input: LoginInput): Promise<AuthLoginResponse> {
@@ -86,7 +111,12 @@ export class AuthService {
     const tokens = generateTokens(user.id)
     await this.repository.setRefreshToken(user.id, tokens.refreshToken)
 
-    return { ...tokens, user: { id: user.id, email: user.email } }
+    const personRecord = await this.personRepository.findByUserId(user.id)
+    const person = personRecord
+      ? { id: personRecord.id, name: personRecord.name, cpf: personRecord.cpf }
+      : null
+
+    return { ...tokens, user: { id: user.id, email: user.email }, person }
   }
 
   async refresh(input: RefreshInput): Promise<AuthTokens> {

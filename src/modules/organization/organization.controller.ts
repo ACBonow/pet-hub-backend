@@ -19,7 +19,7 @@ export class OrganizationController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const org = await this.service.create(parsed.data)
+    const org = await this.service.create(parsed.data, request.user!.id)
     return reply.status(201).send({ success: true, data: org })
   }
 

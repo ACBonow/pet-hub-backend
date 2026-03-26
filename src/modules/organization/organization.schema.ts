@@ -18,7 +18,7 @@ export const CreateOrganizationSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('E-mail inválido.').optional(),
   address: z.string().optional(),
-  responsiblePersonId: z.string().uuid('ID da pessoa responsável inválido.'),
+  responsiblePersonId: z.string().uuid('ID da pessoa responsável inválido.').optional(),
 })
 
 export const UpdateOrganizationSchema = z.object({

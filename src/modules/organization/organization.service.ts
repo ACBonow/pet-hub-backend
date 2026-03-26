@@ -2,6 +2,7 @@
  * @module organization
  * @file organization.service.ts
  * @description Business logic for organization management, including CNPJ validation.
+ *              responsiblePersonId is optional — defaults to the creator's person profile.
  */
 
 import { sanitizeCnpj, validateCnpj } from '../../shared/validators/cnpj.validator'
@@ -16,10 +17,22 @@ export class OrganizationService {
     private personRepository: IPersonRepository,
   ) {}
 
-  async create(input: OrganizationCreateInput): Promise<OrganizationRecord> {
-    const person = await this.personRepository.findById(input.responsiblePersonId)
-    if (!person) {
-      throw HttpError.notFound('Pessoa responsável')
+  async create(input: OrganizationCreateInput, creatorUserId: string): Promise<OrganizationRecord> {
+    // Resolve responsible person: explicit ID takes precedence, otherwise default to creator
+    let responsiblePersonId: string
+
+    if (input.responsiblePersonId) {
+      const person = await this.personRepository.findById(input.responsiblePersonId)
+      if (!person) {
+        throw HttpError.notFound('Pessoa responsável')
+      }
+      responsiblePersonId = input.responsiblePersonId
+    } else {
+      const person = await this.personRepository.findByUserId(creatorUserId)
+      if (!person) {
+        throw HttpError.notFound('Perfil de pessoa do usuário')
+      }
+      responsiblePersonId = person.id
     }
 
     let cnpj: string | undefined
@@ -40,7 +53,7 @@ export class OrganizationService {
       throw HttpError.badRequest('CNPJ_REQUIRED', 'CNPJ é obrigatório para empresas.')
     }
 
-    return this.repository.create({ ...input, cnpj })
+    return this.repository.create({ ...input, cnpj, responsiblePersonId })
   }
 
   async findById(id: string): Promise<OrganizationRecord> {

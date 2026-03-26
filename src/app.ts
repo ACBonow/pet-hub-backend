@@ -38,12 +38,14 @@ export function buildApp(): FastifyInstance {
   // Health check
   app.get('/health', async () => ({ status: 'ok' }))
 
+  // Person repository (shared — also injected into AuthService)
+  const personRepository = new PrismaPersonRepository()
+
   // Auth routes
-  const authService = new AuthService(new PrismaAuthRepository(), new ResendEmailService())
+  const authService = new AuthService(new PrismaAuthRepository(), new ResendEmailService(), personRepository)
   registerAuthRoutes(app, authService)
 
   // Person routes
-  const personRepository = new PrismaPersonRepository()
   const personService = new PersonService(personRepository)
   registerPersonRoutes(app, personService)
 

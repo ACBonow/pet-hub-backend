@@ -13,7 +13,7 @@ export function registerPersonRoutes(app: FastifyInstance, service: PersonServic
   const controller = new PersonController(service)
   const auth = { preHandler: [authMiddleware] }
 
-  app.post('/api/v1/persons', { ...auth, handler: controller.create.bind(controller) })
+  // POST /persons removed — person is created atomically at auth/register
   app.get('/api/v1/persons/me', { ...auth, handler: controller.getMe.bind(controller) })
   app.get('/api/v1/persons/:id', { ...auth, handler: controller.getById.bind(controller) })
   app.patch('/api/v1/persons/:id', { ...auth, handler: controller.update.bind(controller) })

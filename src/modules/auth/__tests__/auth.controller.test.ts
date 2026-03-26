@@ -33,12 +33,13 @@ describe('Auth routes', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         user: { id: 'user-1', email: 'new@example.com' },
+        person: { id: 'person-1', name: 'João Silva', cpf: '52998224725' },
       })
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'new@example.com', password: 'password123' },
+        payload: { email: 'new@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25' },
       })
 
       expect(response.statusCode).toBe(201)
@@ -56,7 +57,7 @@ describe('Auth routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'not-an-email', password: 'password123' },
+        payload: { email: 'not-an-email', password: 'password123', name: 'João Silva', cpf: '529.982.247-25' },
       })
 
       expect(response.statusCode).toBe(400)
@@ -69,7 +70,7 @@ describe('Auth routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'valid@example.com', password: 'short' },
+        payload: { email: 'valid@example.com', password: 'short', name: 'João Silva', cpf: '529.982.247-25' },
       })
 
       expect(response.statusCode).toBe(400)
@@ -86,7 +87,7 @@ describe('Auth routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'taken@example.com', password: 'password123' },
+        payload: { email: 'taken@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25' },
       })
 
       expect(response.statusCode).toBe(409)
@@ -103,6 +104,7 @@ describe('Auth routes', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         user: { id: 'user-1', email: 'test@example.com' },
+        person: { id: 'person-1', name: 'João Silva', cpf: '52998224725' },
       })
 
       const response = await app.inject({

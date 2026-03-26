@@ -7,6 +7,9 @@
 export interface RegisterInput {
   email: string
   password: string
+  name: string
+  cpf: string
+  phone?: string
 }
 
 export interface LoginInput {
@@ -42,6 +45,7 @@ export interface AuthTokens {
 
 export interface AuthLoginResponse extends AuthTokens {
   user: { id: string; email: string }
+  person: { id: string; name: string; cpf: string } | null
 }
 
 export interface AuthUser {

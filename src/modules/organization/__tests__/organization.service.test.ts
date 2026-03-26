@@ -89,7 +89,7 @@ describe('OrganizationService', () => {
       personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
 
       await expect(
-        service.create({ name: 'PetShop', type: 'COMPANY', responsiblePersonId: 'person-1' }),
+        service.create({ name: 'PetShop', type: 'COMPANY', responsiblePersonId: 'person-1' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 400, code: 'CNPJ_REQUIRED' })
     })
 
@@ -97,7 +97,7 @@ describe('OrganizationService', () => {
       personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
 
       await expect(
-        service.create({ name: 'PetShop', type: 'COMPANY', cnpj: '11111111111111', responsiblePersonId: 'person-1' }),
+        service.create({ name: 'PetShop', type: 'COMPANY', cnpj: '11111111111111', responsiblePersonId: 'person-1' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_CNPJ' })
     })
 
@@ -105,11 +105,11 @@ describe('OrganizationService', () => {
       personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
 
       await expect(
-        service.create({ name: 'Pet Rescue', type: 'NGO', cnpj: '12345678000100', responsiblePersonId: 'person-1' }),
+        service.create({ name: 'Pet Rescue', type: 'NGO', cnpj: '12345678000100', responsiblePersonId: 'person-1' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_CNPJ' })
     })
 
-    it('should create NGO without cnpj', async () => {
+    it('should create NGO without cnpj when responsiblePersonId is provided', async () => {
       personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
       orgRepo.findByCnpj.mockResolvedValueOnce(null)
       orgRepo.create.mockResolvedValueOnce(MOCK_ORG)
@@ -118,10 +118,32 @@ describe('OrganizationService', () => {
         name: 'Pet Rescue ONG',
         type: 'NGO',
         responsiblePersonId: 'person-1',
-      })
+      }, 'user-1')
 
       expect(result).toEqual(MOCK_ORG)
       expect(orgRepo.create).toHaveBeenCalledTimes(1)
+    })
+
+    it('should use creator person when responsiblePersonId is not provided', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findByCnpj.mockResolvedValueOnce(null)
+      orgRepo.create.mockResolvedValueOnce(MOCK_ORG)
+
+      const result = await service.create({ name: 'Pet Rescue ONG', type: 'NGO' }, 'user-1')
+
+      expect(result).toEqual(MOCK_ORG)
+      expect(personRepo.findByUserId).toHaveBeenCalledWith('user-1')
+      expect(orgRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ responsiblePersonId: MOCK_PERSON.id }),
+      )
+    })
+
+    it('should throw NOT_FOUND when responsiblePersonId not provided and creator has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(
+        service.create({ name: 'ONG', type: 'NGO' }, 'user-1'),
+      ).rejects.toMatchObject({ statusCode: 404 })
     })
 
     it('should throw CNPJ_ALREADY_IN_USE when cnpj is already registered', async () => {
@@ -129,15 +151,15 @@ describe('OrganizationService', () => {
       orgRepo.findByCnpj.mockResolvedValueOnce(MOCK_COMPANY)
 
       await expect(
-        service.create({ name: 'Outra Empresa', type: 'COMPANY', cnpj: '11222333000181', responsiblePersonId: 'person-1' }),
+        service.create({ name: 'Outra Empresa', type: 'COMPANY', cnpj: '11222333000181', responsiblePersonId: 'person-1' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 409, code: 'CNPJ_ALREADY_IN_USE' })
     })
 
-    it('should throw NOT_FOUND when responsiblePersonId does not exist', async () => {
+    it('should throw NOT_FOUND when explicit responsiblePersonId does not exist', async () => {
       personRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.create({ name: 'PetShop', type: 'COMPANY', cnpj: '11222333000181', responsiblePersonId: 'nonexistent' }),
+        service.create({ name: 'PetShop', type: 'COMPANY', cnpj: '11222333000181', responsiblePersonId: 'nonexistent' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
@@ -151,7 +173,7 @@ describe('OrganizationService', () => {
         type: 'COMPANY',
         cnpj: '11.222.333/0001-81',
         responsiblePersonId: 'person-1',
-      })
+      }, 'user-1')
 
       expect(orgRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ cnpj: '11222333000181' }),
@@ -168,7 +190,7 @@ describe('OrganizationService', () => {
         type: 'COMPANY',
         cnpj: '11222333000181',
         responsiblePersonId: 'person-1',
-      })
+      }, 'user-1')
 
       expect(result).toEqual(MOCK_COMPANY)
       expect(orgRepo.create).toHaveBeenCalledTimes(1)

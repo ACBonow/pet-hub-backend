@@ -68,6 +68,26 @@ describe('Organization routes', () => {
       await app.close()
     })
 
+    it('returns 201 when responsiblePersonId is omitted (uses creator person from JWT)', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.create).mockResolvedValueOnce(MOCK_ORG as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { name: 'Pet Rescue ONG', type: 'NGO' },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(jest.mocked(service.create)).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Pet Rescue ONG', type: 'NGO' }),
+        'user-1',
+      )
+
+      await app.close()
+    })
+
     it('returns 400 when name is too short', async () => {
       const { app } = await buildTestApp()
 

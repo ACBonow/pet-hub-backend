@@ -20,7 +20,7 @@ export interface OrganizationCreateInput {
   phone?: string
   email?: string
   address?: string
-  responsiblePersonId: string
+  responsiblePersonId?: string // optional — resolved by service from JWT when absent
 }
 
 export interface OrganizationUpdateInput {
