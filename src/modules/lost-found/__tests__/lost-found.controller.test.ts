@@ -35,6 +35,20 @@ function makeAuthToken(userId = 'user-1'): string {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET ?? 'test-secret', { expiresIn: '15m' })
 }
 
+function makeMultipartBody(
+  fileContent: Buffer,
+  filename: string,
+  mimeType: string,
+): { payload: Buffer; headers: Record<string, string> } {
+  const boundary = 'test-boundary-abc123'
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileContent,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ])
+  return { payload, headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } }
+}
+
 async function buildTestApp() {
   MockedLostFoundService.mockClear()
   const app = buildApp()
@@ -356,6 +370,98 @@ describe('LostFound routes', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/lost-found/report-1',
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── POST /api/v1/lost-found/:id/photo ────────────────────────────────────
+
+  describe('POST /api/v1/lost-found/:id/photo', () => {
+    it('returns 200 with updated report on valid upload', async () => {
+      const { app, service } = await buildTestApp()
+      const reportWithPhoto = { ...MOCK_REPORT, photoUrl: 'https://storage.example.com/lost-found-images/report-1/123.jpg' }
+      jest.mocked(service.uploadPhoto).mockResolvedValueOnce(reportWithPhoto as any)
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found/report-1/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.photoUrl).toBe(reportWithPhoto.photoUrl)
+      expect(jest.mocked(service.uploadPhoto)).toHaveBeenCalledWith(
+        'report-1',
+        expect.any(Buffer),
+        'image/jpeg',
+      )
+    })
+
+    it('returns 400 when no file sent', async () => {
+      const { app } = await buildTestApp()
+
+      const boundary = 'test-boundary-empty'
+      const payload = Buffer.from(`--${boundary}--\r\n`)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found/report-1/photo',
+        headers: {
+          authorization: `Bearer ${makeAuthToken()}`,
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+        },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().error.code).toBe('NO_FILE')
+    })
+
+    it('returns 400 on invalid file type', async () => {
+      const { app } = await buildTestApp()
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('pdf-content'), 'doc.pdf', 'application/pdf')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found/report-1/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().error.code).toBe('INVALID_FILE_TYPE')
+    })
+
+    it('returns 404 when report not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.uploadPhoto).mockRejectedValueOnce(HttpError.notFound('Relatório de achado/perdido'))
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found/nonexistent/photo',
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+        payload,
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found/report-1/photo',
       })
 
       expect(response.statusCode).toBe(401)

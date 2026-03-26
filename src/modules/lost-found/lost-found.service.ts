@@ -5,6 +5,7 @@
  */
 
 import { HttpError } from '../../shared/errors/HttpError'
+import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
 import type { ILostFoundRepository } from './lost-found.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
@@ -70,5 +71,26 @@ export class LostFoundService {
       throw HttpError.notFound('Relatório de achado/perdido')
     }
     await this.repository.delete(id)
+  }
+
+  async uploadPhoto(reportId: string, file: Buffer, mimeType: string): Promise<LostFoundReport> {
+    const report = await this.repository.findById(reportId)
+    if (!report) {
+      throw HttpError.notFound('Relatório de achado/perdido')
+    }
+
+    if (report.photoUrl) {
+      const oldPath = extractPathFromUrl(report.photoUrl, 'lost-found-images')
+      await deleteFile('lost-found-images', oldPath).catch(() => {})
+    }
+
+    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${reportId}/${Date.now()}.${ext}`
+    const photoUrl = await uploadFile('lost-found-images', path, file, mimeType)
+
+    await this.repository.updatePhotoUrl(reportId, photoUrl)
+
+    const updated = await this.repository.findById(reportId)
+    return updated!
   }
 }

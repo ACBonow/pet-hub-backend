@@ -10,6 +10,13 @@ import type { IPersonRepository } from '../../person'
 import type { LostFoundReport } from '../lost-found.types'
 import { LostFoundService } from '../lost-found.service'
 
+jest.mock('../../../shared/utils/storage', () => ({
+  uploadFile: jest.fn(),
+  deleteFile: jest.fn(),
+  extractPathFromUrl: jest.fn(),
+}))
+import * as storage from '../../../shared/utils/storage'
+
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const MOCK_REPORT: LostFoundReport = {
@@ -59,6 +66,7 @@ function makeLostFoundRepo(overrides: Partial<ILostFoundRepository> = {}): jest.
     findById: jest.fn(),
     findAll: jest.fn(),
     updateStatus: jest.fn(),
+    updatePhotoUrl: jest.fn(),
     delete: jest.fn(),
     ...overrides,
   } as jest.Mocked<ILostFoundRepository>
@@ -263,6 +271,76 @@ describe('LostFoundService', () => {
       await service.delete('report-1')
 
       expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
+    })
+  })
+
+  // ── uploadPhoto ───────────────────────────────────────────────────────────
+
+  describe('uploadPhoto', () => {
+    const FILE = Buffer.from('fake-jpeg')
+    const MIME = 'image/jpeg'
+    const PHOTO_URL = 'https://storage.example.com/lost-found-images/report-1/123.jpg'
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('should throw NOT_FOUND when report does not exist', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.uploadPhoto('nonexistent', FILE, MIME)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should upload file and update photoUrl', async () => {
+      lostFoundRepo.findById
+        .mockResolvedValueOnce(MOCK_REPORT)
+        .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      const result = await service.uploadPhoto('report-1', FILE, MIME)
+
+      expect(storage.uploadFile).toHaveBeenCalledWith(
+        'lost-found-images',
+        expect.stringMatching(/^report-1\/\d+\.jpg$/),
+        FILE,
+        MIME,
+      )
+      expect(lostFoundRepo.updatePhotoUrl).toHaveBeenCalledWith('report-1', PHOTO_URL)
+      expect(result.photoUrl).toBe(PHOTO_URL)
+    })
+
+    it('should delete old photo before uploading new one', async () => {
+      const reportWithPhoto = { ...MOCK_REPORT, photoUrl: 'https://storage.example.com/lost-found-images/report-1/old.jpg' }
+      lostFoundRepo.findById
+        .mockResolvedValueOnce(reportWithPhoto)
+        .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('report-1/old.jpg')
+      ;(storage.deleteFile as jest.Mock).mockResolvedValueOnce(undefined)
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await service.uploadPhoto('report-1', FILE, MIME)
+
+      expect(storage.extractPathFromUrl).toHaveBeenCalledWith(reportWithPhoto.photoUrl, 'lost-found-images')
+      expect(storage.deleteFile).toHaveBeenCalledWith('lost-found-images', 'report-1/old.jpg')
+    })
+
+    it('should continue upload even if old photo deletion fails', async () => {
+      const reportWithPhoto = { ...MOCK_REPORT, photoUrl: 'https://storage.example.com/lost-found-images/report-1/old.jpg' }
+      lostFoundRepo.findById
+        .mockResolvedValueOnce(reportWithPhoto)
+        .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('report-1/old.jpg')
+      ;(storage.deleteFile as jest.Mock).mockRejectedValueOnce(new Error('Storage error'))
+      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await expect(service.uploadPhoto('report-1', FILE, MIME)).resolves.toBeDefined()
+      expect(storage.uploadFile).toHaveBeenCalled()
     })
   })
 })

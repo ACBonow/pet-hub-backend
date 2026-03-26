@@ -17,6 +17,7 @@ export interface ILostFoundRepository {
   findById(id: string): Promise<LostFoundReport | null>
   findAll(filters: LostFoundListFilters): Promise<{ reports: LostFoundReport[]; total: number }>
   updateStatus(id: string, status: LostFoundStatus): Promise<LostFoundReport>
+  updatePhotoUrl(id: string, photoUrl: string): Promise<void>
   delete(id: string): Promise<void>
 }
 
@@ -85,6 +86,10 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
       data: { status: status as any },
     })
     return mapReport(row)
+  }
+
+  async updatePhotoUrl(id: string, photoUrl: string): Promise<void> {
+    await prisma.lostFoundReport.update({ where: { id }, data: { photoUrl } })
   }
 
   async delete(id: string): Promise<void> {
