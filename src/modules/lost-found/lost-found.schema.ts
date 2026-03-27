@@ -17,11 +17,12 @@ const LostFoundStatusEnum = z.enum(['OPEN', 'RESOLVED'], {
 export const CreateLostFoundSchema = z.object({
   type: LostFoundTypeEnum,
   petId: z.string().uuid('ID do pet inválido.').optional(),
-  reporterId: z.string().uuid('ID do relator inválido.'),
+  petName: z.string().optional(),
+  species: z.string().optional(),
   description: z.string().min(1, 'Descrição é obrigatória.'),
   location: z.string().optional(),
-  photoUrl: z.string().url('URL da foto inválida.').optional(),
-  contactInfo: z.string().min(1, 'Informações de contato são obrigatórias.'),
+  contactEmail: z.string().email('Email de contato inválido.'),
+  contactPhone: z.string().optional().nullable(),
 })
 
 export const UpdateLostFoundStatusSchema = z.object({

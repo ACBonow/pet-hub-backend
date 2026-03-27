@@ -16,6 +16,7 @@ import type {
   LostFoundReport,
   LostFoundStatus,
 } from './lost-found.types'
+import type { CreateLostFoundBody } from './lost-found.schema'
 
 export class LostFoundService {
   constructor(
@@ -24,10 +25,10 @@ export class LostFoundService {
     private personRepository: IPersonRepository,
   ) {}
 
-  async create(input: LostFoundCreateInput): Promise<LostFoundReport> {
-    const reporter = await this.personRepository.findById(input.reporterId)
-    if (!reporter) {
-      throw HttpError.notFound('Relator')
+  async createForUser(userId: string, input: CreateLostFoundBody): Promise<LostFoundReport> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) {
+      throw HttpError.notFound('Perfil de pessoa do usuário')
     }
 
     if (input.petId) {
@@ -37,7 +38,19 @@ export class LostFoundService {
       }
     }
 
-    return this.repository.create(input)
+    const createInput: LostFoundCreateInput = {
+      type: input.type,
+      petId: input.petId,
+      reporterId: person.id,
+      petName: input.petName,
+      species: input.species,
+      description: input.description,
+      location: input.location,
+      contactEmail: input.contactEmail,
+      contactPhone: input.contactPhone ?? undefined,
+    }
+
+    return this.repository.create(createInput)
   }
 
   async findAll(filters: LostFoundListFilters): Promise<LostFoundListResult> {

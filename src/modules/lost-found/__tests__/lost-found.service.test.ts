@@ -24,10 +24,13 @@ const MOCK_REPORT: LostFoundReport = {
   type: 'LOST',
   petId: 'pet-1',
   reporterId: 'person-1',
+  petName: 'Rex',
+  species: 'dog',
   description: 'Cachorro perdido no parque.',
   location: 'Parque Ibirapuera, São Paulo',
   photoUrl: null,
-  contactInfo: '11 99999-0000',
+  contactEmail: 'joao@example.com',
+  contactPhone: '11 99999-0000',
   status: 'OPEN',
   createdAt: new Date('2026-03-01'),
   updatedAt: new Date('2026-03-01'),
@@ -115,70 +118,78 @@ describe('LostFoundService', () => {
     service = new LostFoundService(lostFoundRepo, petRepo, personRepo)
   })
 
-  // ── create ────────────────────────────────────────────────────────────────
+  // ── createForUser ─────────────────────────────────────────────────────────
 
-  describe('create', () => {
-    it('should throw NOT_FOUND when reporter does not exist', async () => {
-      personRepo.findById.mockResolvedValueOnce(null)
+  describe('createForUser', () => {
+    it('should throw NOT_FOUND when user has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
 
       await expect(
-        service.create({
+        service.createForUser('user-1', {
           type: 'LOST',
-          reporterId: 'nonexistent',
           description: 'Cachorro perdido.',
-          contactInfo: '11 99999-0000',
+          contactEmail: 'joao@example.com',
         }),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
     it('should throw NOT_FOUND when petId provided but pet does not exist', async () => {
-      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       petRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.create({
+        service.createForUser('user-1', {
           type: 'LOST',
           petId: 'nonexistent',
-          reporterId: 'person-1',
           description: 'Cachorro perdido.',
-          contactInfo: '11 99999-0000',
+          contactEmail: 'joao@example.com',
         }),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
     it('should create report without petId (unknown pet)', async () => {
-      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       const reportWithoutPet: LostFoundReport = { ...MOCK_REPORT, petId: null }
       lostFoundRepo.create.mockResolvedValueOnce(reportWithoutPet)
 
-      const result = await service.create({
+      const result = await service.createForUser('user-1', {
         type: 'FOUND',
-        reporterId: 'person-1',
         description: 'Encontrei um gato.',
-        contactInfo: '11 99999-0000',
+        contactEmail: 'joao@example.com',
       })
 
       expect(result).toEqual(reportWithoutPet)
       expect(petRepo.findById).not.toHaveBeenCalled()
-      expect(lostFoundRepo.create).toHaveBeenCalledTimes(1)
+      expect(lostFoundRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ reporterId: 'person-1', contactEmail: 'joao@example.com' }),
+      )
     })
 
-    it('should create report with petId when pet exists', async () => {
-      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+    it('should create report with petName, species, and phone', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
       lostFoundRepo.create.mockResolvedValueOnce(MOCK_REPORT)
 
-      const result = await service.create({
+      const result = await service.createForUser('user-1', {
         type: 'LOST',
         petId: 'pet-1',
-        reporterId: 'person-1',
+        petName: 'Rex',
+        species: 'dog',
         description: 'Cachorro perdido no parque.',
-        contactInfo: '11 99999-0000',
+        contactEmail: 'joao@example.com',
+        contactPhone: '11 99999-0000',
       })
 
       expect(result).toEqual(MOCK_REPORT)
-      expect(petRepo.findById).toHaveBeenCalledWith('pet-1')
-      expect(lostFoundRepo.create).toHaveBeenCalledTimes(1)
+      expect(lostFoundRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reporterId: 'person-1',
+          petName: 'Rex',
+          species: 'dog',
+          contactEmail: 'joao@example.com',
+          contactPhone: '11 99999-0000',
+        }),
+      )
     })
   })
 

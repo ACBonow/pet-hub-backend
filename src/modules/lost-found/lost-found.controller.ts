@@ -23,7 +23,8 @@ export class LostFoundController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const report = await this.service.create(parsed.data)
+    const userId = (request as any).user!.id
+    const report = await this.service.createForUser(userId, parsed.data)
     return reply.status(201).send({ success: true, data: report })
   }
 

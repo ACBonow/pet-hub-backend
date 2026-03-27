@@ -13,10 +13,13 @@ export interface LostFoundReport {
   type: LostFoundType
   petId: string | null
   reporterId: string
+  petName: string | null
+  species: string | null
   description: string
   location: string | null
   photoUrl: string | null
-  contactInfo: string
+  contactEmail: string | null
+  contactPhone: string | null
   status: LostFoundStatus
   createdAt: Date
   updatedAt: Date
@@ -26,10 +29,13 @@ export interface LostFoundCreateInput {
   type: LostFoundType
   petId?: string
   reporterId: string
+  petName?: string
+  species?: string
   description: string
   location?: string
   photoUrl?: string
-  contactInfo: string
+  contactEmail: string
+  contactPhone?: string
 }
 
 export interface LostFoundUpdateStatusInput {
