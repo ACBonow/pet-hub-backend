@@ -4,25 +4,38 @@
  * @description TypeScript interfaces for the services-directory module.
  */
 
-export type ServiceType =
-  | 'VETERINARIAN'
-  | 'CLINIC'
-  | 'EXAM'
-  | 'PHARMACY'
-  | 'GROOMING'
-  | 'BOARDING'
-  | 'TRANSPORT'
-  | 'OTHER'
+export interface ServiceTypeRecord {
+  id: string
+  code: string
+  label: string
+  color: string
+  active: boolean
+  sortOrder: number
+}
 
 export interface ServiceListing {
   id: string
   name: string
-  type: ServiceType
+  serviceTypeId: string
+  serviceType: ServiceTypeRecord
   description: string | null
-  address: string | null
+  zipCode: string | null
+  street: string | null
+  number: string | null
+  complement: string | null
+  neighborhood: string | null
+  city: string | null
+  state: string | null
   phone: string | null
+  whatsapp: string | null
   email: string | null
   website: string | null
+  instagram: string | null
+  facebook: string | null
+  tiktok: string | null
+  youtube: string | null
+  googleMapsUrl: string | null
+  googleBusinessUrl: string | null
   organizationId: string | null
   createdAt: Date
   updatedAt: Date
@@ -30,28 +43,54 @@ export interface ServiceListing {
 
 export interface CreateServiceListingInput {
   name: string
-  type: ServiceType
+  type: string
   description?: string
-  address?: string
+  zipCode?: string
+  street?: string
+  number?: string
+  complement?: string
+  neighborhood?: string
+  city?: string
+  state?: string
   phone?: string
+  whatsapp?: string
   email?: string
   website?: string
+  instagram?: string
+  facebook?: string
+  tiktok?: string
+  youtube?: string
+  googleMapsUrl?: string
+  googleBusinessUrl?: string
   organizationId?: string
 }
 
 export interface UpdateServiceListingInput {
   name?: string
-  type?: ServiceType
+  type?: string
   description?: string
-  address?: string
+  zipCode?: string
+  street?: string
+  number?: string
+  complement?: string
+  neighborhood?: string
+  city?: string
+  state?: string
   phone?: string
+  whatsapp?: string
   email?: string
   website?: string
+  instagram?: string
+  facebook?: string
+  tiktok?: string
+  youtube?: string
+  googleMapsUrl?: string
+  googleBusinessUrl?: string
   organizationId?: string
 }
 
 export interface ListServicesFilter {
-  type?: ServiceType
+  type?: string
   name?: string
   page?: number
   pageSize?: number

@@ -1,7 +1,7 @@
 /**
  * @module services-directory
  * @file servicesDirectory.controller.ts
- * @description HTTP handlers for services-directory endpoints. Validates input, delegates logic to service.
+ * @description HTTP handlers for services-directory endpoints.
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify'
@@ -14,6 +14,11 @@ import type { ServicesDirectoryService } from './servicesDirectory.service'
 
 export class ServicesDirectoryController {
   constructor(private service: ServicesDirectoryService) {}
+
+  async listTypes(_request: FastifyRequest, reply: FastifyReply) {
+    const types = await this.service.listTypes()
+    return reply.status(200).send({ success: true, data: types })
+  }
 
   async list(request: FastifyRequest, reply: FastifyReply) {
     const parsed = ListServicesQuerySchema.safeParse(request.query)

@@ -4,21 +4,44 @@
  * @description Unit tests for ServicesDirectoryService — repository is mocked.
  */
 
-import type { IServicesDirectoryRepository } from '../servicesDirectory.repository'
-import type { ServiceListing, PaginatedServiceListings } from '../servicesDirectory.types'
+import type { IServicesDirectoryRepository, IServiceTypeRepository } from '../servicesDirectory.repository'
+import type { ServiceListing, ServiceTypeRecord, PaginatedServiceListings } from '../servicesDirectory.types'
 import { ServicesDirectoryService } from '../servicesDirectory.service'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
+const MOCK_SERVICE_TYPE: ServiceTypeRecord = {
+  id: 'type-1',
+  code: 'CLINIC',
+  label: 'Clínica',
+  color: 'bg-green-100 text-green-800',
+  active: true,
+  sortOrder: 2,
+}
+
 const MOCK_LISTING: ServiceListing = {
   id: 'svc-1',
   name: 'Clínica VetCare',
-  type: 'CLINIC',
+  serviceTypeId: 'type-1',
+  serviceType: MOCK_SERVICE_TYPE,
   description: 'Atendimento 24h',
-  address: 'Rua das Flores, 100',
+  zipCode: null,
+  street: null,
+  number: null,
+  complement: null,
+  neighborhood: null,
+  city: null,
+  state: null,
   phone: '11999999999',
+  whatsapp: null,
   email: 'contato@vetcare.com',
   website: 'https://vetcare.com',
+  instagram: null,
+  facebook: null,
+  tiktok: null,
+  youtube: null,
+  googleMapsUrl: null,
+  googleBusinessUrl: null,
   organizationId: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
@@ -31,7 +54,7 @@ const MOCK_PAGINATED: PaginatedServiceListings = {
   pageSize: 20,
 }
 
-// ─── Repo factory ─────────────────────────────────────────────────────────────
+// ─── Repo factories ───────────────────────────────────────────────────────────
 
 function makeRepo(
   overrides: Partial<IServicesDirectoryRepository> = {},
@@ -46,28 +69,57 @@ function makeRepo(
   } as jest.Mocked<IServicesDirectoryRepository>
 }
 
+function makeTypeRepo(
+  overrides: Partial<IServiceTypeRepository> = {},
+): jest.Mocked<IServiceTypeRepository> {
+  return {
+    findAll: jest.fn(),
+    findByCode: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IServiceTypeRepository>
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('ServicesDirectoryService', () => {
   let service: ServicesDirectoryService
   let repo: jest.Mocked<IServicesDirectoryRepository>
+  let typeRepo: jest.Mocked<IServiceTypeRepository>
 
   beforeEach(() => {
     jest.clearAllMocks()
     repo = makeRepo()
-    service = new ServicesDirectoryService(repo)
+    typeRepo = makeTypeRepo()
+    service = new ServicesDirectoryService(repo, typeRepo)
+  })
+
+  // ── listTypes ─────────────────────────────────────────────────────────────
+
+  describe('listTypes', () => {
+    it('should return all active service types', async () => {
+      typeRepo.findAll.mockResolvedValueOnce([MOCK_SERVICE_TYPE])
+
+      const result = await service.listTypes()
+
+      expect(result).toHaveLength(1)
+      expect(result[0].code).toBe('CLINIC')
+      expect(typeRepo.findAll).toHaveBeenCalledTimes(1)
+    })
   })
 
   // ── create ────────────────────────────────────────────────────────────────
 
   describe('create', () => {
-    it('should throw VALIDATION_ERROR when type is invalid', async () => {
+    it('should throw VALIDATION_ERROR when type code is not found', async () => {
+      typeRepo.findByCode.mockResolvedValueOnce(null)
+
       await expect(
-        service.create({ name: 'Test', type: 'INVALID' as any }),
+        service.create({ name: 'Test', type: 'INVALID' }),
       ).rejects.toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' })
     })
 
     it('should create and return a ServiceListing', async () => {
+      typeRepo.findByCode.mockResolvedValueOnce(MOCK_SERVICE_TYPE)
       repo.create.mockResolvedValueOnce(MOCK_LISTING)
 
       const result = await service.create({
@@ -77,8 +129,9 @@ describe('ServicesDirectoryService', () => {
       })
 
       expect(result).toEqual(MOCK_LISTING)
+      expect(typeRepo.findByCode).toHaveBeenCalledWith('CLINIC')
       expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Clínica VetCare', type: 'CLINIC' }),
+        expect.objectContaining({ name: 'Clínica VetCare', serviceTypeId: 'type-1' }),
       )
     })
   })
@@ -152,6 +205,16 @@ describe('ServicesDirectoryService', () => {
 
       expect(result.name).toBe('VetCare Plus')
       expect(repo.update).toHaveBeenCalledWith('svc-1', expect.objectContaining({ name: 'VetCare Plus' }))
+    })
+
+    it('should throw VALIDATION_ERROR when updating to invalid type', async () => {
+      repo.findById.mockResolvedValueOnce(MOCK_LISTING)
+      typeRepo.findByCode.mockResolvedValueOnce(null)
+
+      await expect(service.update('svc-1', { type: 'INVALID' })).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      })
     })
   })
 

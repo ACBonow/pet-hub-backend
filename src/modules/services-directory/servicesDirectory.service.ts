@@ -6,35 +6,32 @@
 
 import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
-import type { IServicesDirectoryRepository } from './servicesDirectory.repository'
+import type { IServicesDirectoryRepository, IServiceTypeRepository } from './servicesDirectory.repository'
 import type {
   CreateServiceListingInput,
   ListServicesFilter,
   PaginatedServiceListings,
   ServiceListing,
-  ServiceType,
+  ServiceTypeRecord,
   UpdateServiceListingInput,
 } from './servicesDirectory.types'
 
-const VALID_SERVICE_TYPES: ServiceType[] = [
-  'VETERINARIAN',
-  'CLINIC',
-  'EXAM',
-  'PHARMACY',
-  'GROOMING',
-  'BOARDING',
-  'TRANSPORT',
-  'OTHER',
-]
-
 export class ServicesDirectoryService {
-  constructor(private repository: IServicesDirectoryRepository) {}
+  constructor(
+    private repository: IServicesDirectoryRepository,
+    private typeRepository: IServiceTypeRepository,
+  ) {}
+
+  async listTypes(): Promise<ServiceTypeRecord[]> {
+    return this.typeRepository.findAll()
+  }
 
   async create(input: CreateServiceListingInput): Promise<ServiceListing> {
-    if (!VALID_SERVICE_TYPES.includes(input.type)) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Tipo de serviço inválido.')
+    const serviceType = await this.typeRepository.findByCode(input.type)
+    if (!serviceType) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Tipo de serviço não encontrado.')
     }
-    return this.repository.create(input)
+    return this.repository.create({ ...input, serviceTypeId: serviceType.id })
   }
 
   async findAll(filter: ListServicesFilter = {}): Promise<PaginatedServiceListings> {
@@ -50,7 +47,17 @@ export class ServicesDirectoryService {
   async update(id: string, input: UpdateServiceListingInput): Promise<ServiceListing> {
     const existing = await this.repository.findById(id)
     if (!existing) throw HttpError.notFound('Serviço')
-    return this.repository.update(id, input)
+
+    let serviceTypeId: string | undefined
+    if (input.type !== undefined) {
+      const serviceType = await this.typeRepository.findByCode(input.type)
+      if (!serviceType) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Tipo de serviço não encontrado.')
+      }
+      serviceTypeId = serviceType.id
+    }
+
+    return this.repository.update(id, { ...input, serviceTypeId })
   }
 
   async delete(id: string): Promise<void> {

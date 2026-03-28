@@ -17,6 +17,10 @@ export function registerServicesDirectoryRoutes(
   const auth = { preHandler: [authMiddleware] }
 
   // Public routes
+  app.get('/api/v1/services-directory/types', {
+    handler: controller.listTypes.bind(controller),
+  })
+
   app.get('/api/v1/services-directory', {
     handler: controller.list.bind(controller),
   })

@@ -8,21 +8,45 @@ import jwt from 'jsonwebtoken'
 import { buildApp } from '../../../app'
 import { ServicesDirectoryService } from '../servicesDirectory.service'
 import { HttpError } from '../../../shared/errors/HttpError'
+import { AppError } from '../../../shared/errors/AppError'
 
 jest.mock('../servicesDirectory.service')
 const MockedService = ServicesDirectoryService as jest.MockedClass<typeof ServicesDirectoryService>
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
+const MOCK_SERVICE_TYPE = {
+  id: 'type-1',
+  code: 'CLINIC',
+  label: 'Clínica',
+  color: 'bg-green-100 text-green-800',
+  active: true,
+  sortOrder: 2,
+}
+
 const MOCK_LISTING = {
   id: 'svc-1',
   name: 'Clínica VetCare',
-  type: 'CLINIC',
+  serviceTypeId: 'type-1',
+  serviceType: MOCK_SERVICE_TYPE,
   description: 'Atendimento 24h',
-  address: 'Rua das Flores, 100',
+  zipCode: null,
+  street: null,
+  number: null,
+  complement: null,
+  neighborhood: null,
+  city: null,
+  state: null,
   phone: '11999999999',
+  whatsapp: null,
   email: 'contato@vetcare.com',
   website: 'https://vetcare.com',
+  instagram: null,
+  facebook: null,
+  tiktok: null,
+  youtube: null,
+  googleMapsUrl: null,
+  googleBusinessUrl: null,
   organizationId: null,
   createdAt: new Date('2026-01-01').toISOString(),
   updatedAt: new Date('2026-01-01').toISOString(),
@@ -43,6 +67,26 @@ async function buildTestApp() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('ServicesDirectory routes', () => {
+  // ── GET /api/v1/services-directory/types ──────────────────────────────────
+
+  describe('GET /api/v1/services-directory/types', () => {
+    it('returns 200 with list of service types (public route)', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.listTypes).mockResolvedValueOnce([MOCK_SERVICE_TYPE])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/services-directory/types',
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].code).toBe('CLINIC')
+    })
+  })
+
   // ── GET /api/v1/services-directory ────────────────────────────────────────
 
   describe('GET /api/v1/services-directory', () => {
@@ -102,17 +146,6 @@ describe('ServicesDirectory routes', () => {
       expect(response.statusCode).toBe(200)
       expect(service.findAll).toHaveBeenCalledWith(expect.objectContaining({ name: 'VetCare' }))
     })
-
-    it('returns 400 for invalid type query param', async () => {
-      const { app } = await buildTestApp()
-
-      const response = await app.inject({
-        method: 'GET',
-        url: '/api/v1/services-directory?type=INVALID',
-      })
-
-      expect(response.statusCode).toBe(400)
-    })
   })
 
   // ── GET /api/v1/services-directory/:id ────────────────────────────────────
@@ -131,6 +164,7 @@ describe('ServicesDirectory routes', () => {
       const body = response.json()
       expect(body.success).toBe(true)
       expect(body.data.id).toBe('svc-1')
+      expect(body.data.serviceType.code).toBe('CLINIC')
     })
 
     it('returns 404 when listing not found', async () => {
@@ -166,7 +200,7 @@ describe('ServicesDirectory routes', () => {
       expect(body.data.id).toBe('svc-1')
     })
 
-    it('returns 400 on invalid body', async () => {
+    it('returns 400 on missing required fields', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
@@ -179,8 +213,11 @@ describe('ServicesDirectory routes', () => {
       expect(response.statusCode).toBe(400)
     })
 
-    it('returns 400 on invalid type', async () => {
-      const { app } = await buildTestApp()
+    it('returns 400 on invalid type (service throws VALIDATION_ERROR)', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.create).mockRejectedValueOnce(
+        new AppError(400, 'VALIDATION_ERROR', 'Tipo de serviço não encontrado.'),
+      )
 
       const response = await app.inject({
         method: 'POST',

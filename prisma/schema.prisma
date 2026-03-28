@@ -290,32 +290,48 @@ model ExamFile {
 
 // ─── Services Directory ───────────────────────────────────────────────────────
 
-enum ServiceType {
-  VETERINARIAN
-  CLINIC
-  EXAM
-  PHARMACY
-  GROOMING
-  BOARDING
-  TRANSPORT
-  OTHER
+model ServiceType {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  label     String
+  color     String   @default("bg-gray-100 text-gray-800")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  services  ServiceListing[]
+
+  @@map("service_types")
 }
 
 model ServiceListing {
-  id             String      @id @default(uuid())
-  name           String
-  type           ServiceType
-  description    String?
-  address        String?
-  phone          String?
-  email          String?
-  website        String?
-  organizationId String?     @map("organization_id")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  name               String
+  serviceTypeId      String   @map("service_type_id")
+  description        String?
+  zipCode            String?  @map("zip_code")
+  street             String?
+  number             String?
+  complement         String?
+  neighborhood       String?
+  city               String?
+  state              String?
+  phone              String?
+  whatsapp           String?
+  email              String?
+  website            String?
+  instagram          String?
+  facebook           String?
+  tiktok             String?
+  youtube            String?
+  googleMapsUrl      String?  @map("google_maps_url")
+  googleBusinessUrl  String?  @map("google_business_url")
+  organizationId     String?  @map("organization_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  organization Organization? @relation(fields: [organizationId], references: [id])
+  serviceType  ServiceType    @relation(fields: [serviceTypeId], references: [id])
+  organization Organization?  @relation(fields: [organizationId], references: [id])
 
-  @@index([type])
+  @@index([serviceTypeId])
   @@map("service_listings")
 }
