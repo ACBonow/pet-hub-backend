@@ -59,16 +59,24 @@ enum OrgType {
 }
 
 model Organization {
-  id          String   @id @default(uuid())
-  name        String
-  type        OrgType
-  cnpj        String?  @unique // 14 digits, no formatting — required for COMPANY
-  description String?
-  phone       String?
-  email       String?
-  address     String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  name                String
+  type                OrgType
+  cnpj                String?  @unique // 14 digits, no formatting — required for COMPANY
+  description         String?
+  phone               String?
+  email               String?
+  website             String?
+  instagram           String?
+  address             String?  // legacy free-text
+  addressStreet       String?  @map("address_street")
+  addressNeighborhood String?  @map("address_neighborhood")
+  addressNumber       String?  @map("address_number")
+  addressCep          String?  @map("address_cep")
+  addressCity         String?  @map("address_city")
+  addressState        String?  @map("address_state")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   responsiblePersons OrganizationPerson[]
   tutoredPets        Tutorship[]          @relation("OrgTutor")

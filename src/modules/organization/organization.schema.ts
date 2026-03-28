@@ -17,7 +17,14 @@ export const CreateOrganizationSchema = z.object({
   description: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email('E-mail inválido.').optional(),
-  address: z.string().optional(),
+  website: z.string().optional(),
+  instagram: z.string().optional(),
+  addressStreet: z.string().optional(),
+  addressNeighborhood: z.string().optional(),
+  addressNumber: z.string().optional(),
+  addressCep: z.string().optional(),
+  addressCity: z.string().optional(),
+  addressState: z.string().optional(),
   responsiblePersonId: z.string().uuid('ID da pessoa responsável inválido.').optional(),
 })
 
@@ -26,7 +33,14 @@ export const UpdateOrganizationSchema = z.object({
   description: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().email('E-mail inválido.').nullable().optional(),
-  address: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  instagram: z.string().nullable().optional(),
+  addressStreet: z.string().nullable().optional(),
+  addressNeighborhood: z.string().nullable().optional(),
+  addressNumber: z.string().nullable().optional(),
+  addressCep: z.string().nullable().optional(),
+  addressCity: z.string().nullable().optional(),
+  addressState: z.string().nullable().optional(),
 })
 
 export type CreateOrganizationBody = z.infer<typeof CreateOrganizationSchema>
