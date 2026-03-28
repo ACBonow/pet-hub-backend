@@ -46,6 +46,13 @@ export class LostFoundService {
       species: input.species,
       description: input.description,
       location: input.location,
+      addressStreet: input.addressStreet,
+      addressNeighborhood: input.addressNeighborhood,
+      addressNumber: input.addressNumber,
+      addressCep: input.addressCep,
+      addressCity: input.addressCity,
+      addressState: input.addressState,
+      addressNotes: input.addressNotes,
       contactEmail: input.contactEmail,
       contactPhone: input.contactPhone ?? undefined,
     }
