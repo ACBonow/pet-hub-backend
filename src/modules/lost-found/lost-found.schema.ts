@@ -21,6 +21,13 @@ export const CreateLostFoundSchema = z.object({
   species: z.string().optional(),
   description: z.string().min(1, 'Descrição é obrigatória.'),
   location: z.string().optional(),
+  addressStreet: z.string().optional(),
+  addressNeighborhood: z.string().optional(),
+  addressNumber: z.string().optional(),
+  addressCep: z.string().optional(),
+  addressCity: z.string().optional(),
+  addressState: z.string().optional(),
+  addressNotes: z.string().optional(),
   contactEmail: z.string().email('Email de contato inválido.'),
   contactPhone: z.string().optional().nullable(),
 })

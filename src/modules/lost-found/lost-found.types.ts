@@ -17,6 +17,13 @@ export interface LostFoundReport {
   species: string | null
   description: string
   location: string | null
+  addressStreet: string | null
+  addressNeighborhood: string | null
+  addressNumber: string | null
+  addressCep: string | null
+  addressCity: string | null
+  addressState: string | null
+  addressNotes: string | null
   photoUrl: string | null
   contactEmail: string | null
   contactPhone: string | null
@@ -33,6 +40,13 @@ export interface LostFoundCreateInput {
   species?: string
   description: string
   location?: string
+  addressStreet?: string
+  addressNeighborhood?: string
+  addressNumber?: string
+  addressCep?: string
+  addressCity?: string
+  addressState?: string
+  addressNotes?: string
   photoUrl?: string
   contactEmail: string
   contactPhone?: string

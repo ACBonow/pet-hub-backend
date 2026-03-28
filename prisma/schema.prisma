@@ -212,21 +212,28 @@ enum LostFoundStatus {
 }
 
 model LostFoundReport {
-  id           String          @id @default(uuid())
-  type         LostFoundType
-  petId        String?         @map("pet_id")
-  reporterId   String          @map("reporter_id")
-  petName      String?         @map("pet_name")
-  species      String?
-  description  String
-  location     String?
-  photoUrl     String?         @map("photo_url")
-  contactInfo  String?         @map("contact_info")
-  contactEmail String?         @map("contact_email")
-  contactPhone String?         @map("contact_phone")
-  status       LostFoundStatus @default(OPEN)
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  id                  String          @id @default(uuid())
+  type                LostFoundType
+  petId               String?         @map("pet_id")
+  reporterId          String          @map("reporter_id")
+  petName             String?         @map("pet_name")
+  species             String?
+  description         String
+  location            String?         // legacy free-text field
+  addressStreet       String?         @map("address_street")
+  addressNeighborhood String?         @map("address_neighborhood")
+  addressNumber       String?         @map("address_number")
+  addressCep          String?         @map("address_cep")
+  addressCity         String?         @map("address_city")
+  addressState        String?         @map("address_state")
+  addressNotes        String?         @map("address_notes")
+  photoUrl            String?         @map("photo_url")
+  contactInfo         String?         @map("contact_info")
+  contactEmail        String?         @map("contact_email")
+  contactPhone        String?         @map("contact_phone")
+  status              LostFoundStatus @default(OPEN)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
 
   pet      Pet?   @relation(fields: [petId], references: [id])
   reporter Person @relation(fields: [reporterId], references: [id])
