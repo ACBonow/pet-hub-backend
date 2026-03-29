@@ -268,6 +268,12 @@ Regras:
 
 ---
 
+## Planejamento de Tasks
+
+Sempre que uma nova task for planejada (adicionada ao `docs/tarefas/`), é **obrigatório** criar o item correspondente via `TaskCreate` para ambos os repositórios (backend e frontend), mesmo que a task de frontend seja dependente ou futura.
+
+---
+
 ## Pedindo Esclarecimento
 
 Se uma solicitação for ambígua sobre:
