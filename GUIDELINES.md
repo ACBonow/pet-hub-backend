@@ -176,14 +176,14 @@ describe('PersonService', () => {
 
 | Module              | Responsabilidade                                                       |
 |---------------------|------------------------------------------------------------------------|
-| auth                | Autenticação JWT, refresh tokens, login, register, logout              |
+| auth                | Autenticação JWT, refresh tokens, login, register (cria User + Person atomicamente) |
 | person              | CRUD de pessoas, validação de CPF, gerenciamento de perfil             |
-| organization        | CRUD de empresas (CNPJ obrigatório) e ONGs (CNPJ opcional), pessoas responsáveis |
-| pet                 | CRUD de pets, tutoria (dono/tutor/lar temporário), co-tutores, transferência de tutoria |
-| adoption            | Listagens de adoção vinculadas a pessoas ou organizações               |
-| lost-found          | Relatórios de animais achados e perdidos                               |
-| pet-health          | Carteirinha de vacinação, arquivos de exames, lembretes, campanhas     |
-| services-directory  | Diretório de prestadores de serviços pet                               |
+| organization        | CRUD de orgs, papéis OWNER/MANAGER/MEMBER, gerenciamento de membros    |
+| pet                 | CRUD de pets, tutoria, co-tutores, transferência, foto                 |
+| adoption            | Listagens de adoção por pessoa ou organização (com validação de permissão) |
+| lost-found          | Reportes de perdidos/achados por pessoa ou organização (com validação de permissão) |
+| pet-health          | Carteirinha de vacinação, arquivos de exames                           |
+| services-directory  | Diretório de serviços pet por pessoa ou organização (com validação de permissão) |
 
 ### Future Module
 
@@ -216,10 +216,19 @@ describe('PersonService', () => {
 - O algoritmo padrão de dígito verificador do CNPJ deve passar.
 - Armazenado como apenas dígitos. Exibido formatado (`00.000.000/0000-00`).
 
-### Responsible Person (Organization)
+### Responsible Person & Roles (Organization)
 
-- Toda empresa e ONG deve ter pelo menos uma pessoa responsável (entidade Person vinculada).
-- Isso é garantido na camada de service: criação de org sem `responsiblePersonId` é rejeitada.
+- Toda organização deve ter pelo menos uma pessoa responsável no momento da criação.
+- O criador recebe automaticamente o papel `OWNER`.
+- Papéis: `OWNER` (total) > `MANAGER` (operacional) > `MEMBER` (criação básica).
+- Verificação de papel centralizada em `shared/utils/org-permission.ts` — nunca inline.
+- Não é possível remover ou rebaixar o último `OWNER` de uma organização.
+
+### Criação de User + Person
+
+- O endpoint `POST /api/v1/auth/register` cria `User` e `Person` em uma única transação Prisma.
+- Não existe `User` sem `Person` associada — as duas entidades nascem juntas.
+- Em caso de falha (CPF ou email duplicado), nenhum registro é criado.
 
 ### Tutorship (Pet)
 
@@ -372,9 +381,19 @@ VITE_API_BASE_URL=
 O banco de dados é hospedado no **Supabase** (PostgreSQL gerenciado).
 
 - **ORM**: Prisma conectado à connection string do Supabase (`DATABASE_URL` + `DIRECT_URL`).
-- **Storage**: Supabase Storage para arquivos de exames, imagens de pets e documentos.
-- **Row Level Security (RLS)**: Habilitado nas tabelas sensíveis. Políticas de RLS são documentadas junto ao schema Prisma.
+- **Storage**: Supabase Storage para arquivos e imagens.
+- **Row Level Security (RLS)**: Habilitado nas tabelas sensíveis.
 - **Connection pooling**: Use `DATABASE_URL` com o pooler do Supabase (porta 6543) para funções serverless. Use `DIRECT_URL` (porta 5432) para migrations do Prisma.
+
+**Buckets de Storage:**
+
+| Bucket | Conteúdo | Acesso |
+|--------|----------|--------|
+| `pet-images` | Fotos de pets | Público |
+| `org-images` | Fotos/logos de organizações | Público |
+| `service-images` | Fotos de serviços | Público |
+| `exam-files` | Arquivos de exames | Privado |
+| `documents` | Documentos gerais | Privado |
 
 Variáveis adicionais obrigatórias do backend:
 ```
