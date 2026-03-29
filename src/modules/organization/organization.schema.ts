@@ -12,8 +12,9 @@ export const CreateOrganizationSchema = z.object({
   type: z.enum(['COMPANY', 'NGO'], { message: 'Tipo deve ser COMPANY ou NGO.' }),
   cnpj: z
     .string()
-    .transform(sanitizeCnpj)
-    .optional(),
+    .nullable()
+    .optional()
+    .transform(v => (v != null ? sanitizeCnpj(v) : v)),
   description: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().email('E-mail inválido.').nullable().optional(),
