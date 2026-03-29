@@ -46,6 +46,9 @@ O sistema é mobile-first e segue TDD estritamente.
 8. **Texto voltado ao usuário deve ser em português brasileiro.** Identificadores de código são sempre em inglês.
 9. **Nunca use `any` sem um comentário explicando o motivo.**
 10. **Nunca use `console.log` em código de produção** — use o logger em `shared/utils/logger.ts`.
+11. **`register` cria User + Person atomicamente.** Use `prisma.$transaction` — nunca crie um sem o outro. Rollback total em caso de falha.
+12. **Endpoints que aceitam `organizationId` no body devem chamar `resolveActorContext`** de `shared/utils/resolve-actor-context.ts` antes de qualquer operação. Esta função valida que o usuário tem papel OWNER ou MANAGER na organização. Nunca valide permissão de org inline no service ou controller.
+13. **Permissões de organização são verificadas via `hasOrgPermission`** de `shared/utils/org-permission.ts`. Nunca implemente verificação de papel inline — sempre use o helper compartilhado.
 
 ---
 
@@ -112,11 +115,15 @@ api/
 - Armazene CPF apenas como dígitos (sem formatação).
 
 ### Organization (Empresa e ONG)
-- Campo `type` deve ser `company` ou `ngo`.
+- Campo `type` deve ser `COMPANY` ou `NGO`.
 - Empresa: CNPJ obrigatório e válido.
 - ONG: CNPJ opcional. Se fornecido, deve ser válido.
-- Ambos os tipos devem ter pelo menos uma pessoa responsável (via `responsiblePersonId`).
-- Rejeite a criação se `responsiblePersonId` não referenciar uma Person existente.
+- Toda organização deve ter pelo menos uma pessoa responsável no momento da criação.
+- O criador da organização recebe automaticamente o papel `OWNER` (via `OrganizationPerson.role`).
+- Papéis disponíveis: `OWNER` (administrador total), `MANAGER` (operacional), `MEMBER` (criação básica).
+- Apenas `OWNER` pode editar dados da org, gerenciar membros ou excluir a org.
+- Nunca permita remover ou rebaixar o último `OWNER` — retornar 409 `LAST_OWNER`.
+- Verificação de papel: sempre use `hasOrgPermission(userId, orgId, minRole)` de `shared/utils/org-permission.ts`.
 
 ### Pet
 - Um pet deve ter exatamente um tutor primário (`owner`, `tutor` ou `temporary-home`).
@@ -183,11 +190,23 @@ Erro:
 
 ### Storage (arquivos de exames, imagens)
 
-- Arquivos de exames e imagens de pets são salvos no **Supabase Storage**.
+- Arquivos de exames e imagens são salvos no **Supabase Storage**.
 - O backend usa `SUPABASE_SERVICE_ROLE_KEY` para operações de storage (upload, delete).
-- O frontend recebe URLs públicas ou signed URLs — nunca acessa o storage diretamente com a service role key.
-- Buckets planejados: `pet-images`, `exam-files`, `documents`.
-- Nunca salve binários diretamente no banco — sempre use Storage e salve apenas a URL/path.
+- O frontend recebe URLs públicas — nunca acessa o storage diretamente com a service role key.
+- Nunca salve binários diretamente no banco — sempre use Storage e salve apenas a URL no campo `photoUrl`.
+- Ao substituir uma imagem, **sempre delete o arquivo anterior** do storage antes de fazer o upload novo.
+
+Buckets e seus usos:
+
+| Bucket | Conteúdo | Acesso |
+|--------|----------|--------|
+| `pet-images` | Fotos de pets | Público |
+| `org-images` | Fotos/logos de organizações | Público |
+| `service-images` | Fotos de serviços | Público |
+| `exam-files` | Arquivos de exames | Privado |
+| `documents` | Documentos gerais | Privado |
+
+Path padrão de arquivo: `{entityId}/{timestamp}-{originalname}`
 
 ### Autenticação
 
@@ -201,6 +220,26 @@ O **Supabase Auth não é utilizado**. A autenticação é própria: JWT + refre
 
 ---
 
+## Códigos de Erro Padrão
+
+| Code | Status | Situação |
+|------|--------|----------|
+| `INVALID_CPF` | 400 | CPF com dígito verificador inválido |
+| `INVALID_CNPJ` | 400 | CNPJ com dígito verificador inválido |
+| `CNPJ_REQUIRED` | 400 | CNPJ ausente em organização do tipo COMPANY |
+| `RESPONSIBLE_PERSON_REQUIRED` | 400 | Organização criada sem pessoa responsável |
+| `EMAIL_ALREADY_EXISTS` | 409 | E-mail já cadastrado |
+| `CPF_ALREADY_EXISTS` | 409 | CPF já cadastrado |
+| `ALREADY_A_MEMBER` | 409 | Pessoa já é membro da organização |
+| `LAST_OWNER` | 409 | Tentativa de remover/rebaixar o último OWNER |
+| `INSUFFICIENT_PERMISSION` | 403 | Usuário sem papel suficiente para a ação na org |
+| `PERSON_NOT_FOUND` | 404 | CPF informado não corresponde a nenhuma Person |
+| `EMAIL_NOT_VERIFIED` | 403 | Login com e-mail não verificado |
+| `INVALID_VERIFICATION_TOKEN` | 400 | Token de verificação inválido |
+| `VERIFICATION_TOKEN_EXPIRED` | 400 | Token de verificação expirado |
+| `INVALID_RESET_TOKEN` | 400 | Token de reset de senha inválido |
+| `RESET_TOKEN_EXPIRED` | 400 | Token de reset expirado |
+
 ## O que o Claude NÃO deve fazer
 
 - Não modifique `shared/validators/` sem atualizar também o arquivo de testes correspondente.
@@ -209,31 +248,23 @@ O **Supabase Auth não é utilizado**. A autenticação é própria: JWT + refre
 - Não retorne dados mock/placeholder de um service — mock o repository em vez disso.
 - Não hardcode valores sensíveis ao ambiente (URLs, secrets) — sempre use `config/env.ts`.
 - Não use `console.log` em código de produção.
+- Não implemente verificação de papel de organização inline — sempre use `hasOrgPermission`.
+- Não crie User sem criar Person na mesma transação — nunca separe essas duas operações.
 
 ---
 
-## Fluxo Git Obrigatório por Task
-
-Antes de iniciar qualquer task:
-```bash
-git checkout main && git pull origin main
-git checkout -b TASK-BE-XXX
-```
+## Fluxo Git por Task
 
 Ao concluir a task (todos os testes passando):
 ```bash
 git add <arquivos específicos>
 git commit -m "type(scope): descrição"
-git push origin TASK-BE-XXX
-# gh pr create --base homologacao --title "[TASK-BE-XXX] Descrição" --body "..."
-# Se gh não estiver disponível, abrir manualmente em:
-# github.com/ACBonow/pet-hub-backend/pull/new/TASK-BE-XXX (mudar base para homologacao)
+git push origin main
 ```
 
 Regras:
-- Nunca commitar diretamente em `main` ou `homologacao`.
-- Sempre criar o branch a partir de `main` atualizada.
-- PR target é sempre `homologacao`.
+- Commitar diretamente em `main`.
+- Nunca usar feature branches ou PRs.
 
 ---
 
