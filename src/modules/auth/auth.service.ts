@@ -69,14 +69,11 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS)
-    const user = await this.repository.createUser(input.email, passwordHash)
-
-    const person = await this.personRepository.create({
-      userId: user.id,
-      name: input.name,
-      cpf,
-      phone: input.phone,
-    })
+    const { user, person } = await this.repository.createUserWithPerson(
+      input.email,
+      passwordHash,
+      { name: input.name, cpf, phone: input.phone },
+    )
 
     const verificationToken = generateSecureToken()
     const verificationTokenExpiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS)

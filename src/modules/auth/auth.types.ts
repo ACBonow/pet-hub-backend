@@ -64,3 +64,12 @@ export interface UserRecord {
   resetPasswordToken: string | null
   resetPasswordTokenExpiresAt: Date | null
 }
+
+/** Snapshot mínimo da Person criada atomicamente junto ao User no registro. */
+export interface PersonSnapshot {
+  id: string
+  userId: string
+  name: string
+  cpf: string
+  phone: string | null
+}
