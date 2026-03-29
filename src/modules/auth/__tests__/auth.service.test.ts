@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken'
 import type { IAuthRepository } from '../auth.repository'
 import type { IEmailService } from '../../../shared/utils/email'
 import type { IPersonRepository } from '../../person'
-import type { UserRecord } from '../auth.types'
+import type { PersonSnapshot, UserRecord } from '../auth.types'
 import { AuthService } from '../auth.service'
 
 jest.mock('bcrypt')
@@ -46,11 +46,20 @@ const MOCK_PERSON_RECORD = {
   updatedAt: new Date(),
 }
 
+const MOCK_PERSON_SNAPSHOT: PersonSnapshot = {
+  id: 'person-1',
+  userId: 'user-1',
+  name: 'João Silva',
+  cpf: '52998224725',
+  phone: null,
+}
+
 function makeRepo(overrides: Partial<IAuthRepository> = {}): jest.Mocked<IAuthRepository> {
   return {
     findUserByEmail: jest.fn(),
     findUserById: jest.fn(),
     createUser: jest.fn(),
+    createUserWithPerson: jest.fn(),
     setRefreshToken: jest.fn(),
     findUserByRefreshToken: jest.fn(),
     setVerificationToken: jest.fn(),
@@ -134,26 +143,30 @@ describe('AuthService', () => {
       ).rejects.toMatchObject({ statusCode: 409, code: 'CPF_ALREADY_IN_USE' })
     })
 
-    it('creates user with hashed password, creates person, sends verification email and returns tokens + person', async () => {
+    it('creates user and person atomically via createUserWithPerson, sends verification email and returns tokens + person', async () => {
       repo.findUserByEmail.mockResolvedValueOnce(null)
       personRepo.findByCpf.mockResolvedValueOnce(null)
-      repo.createUser.mockResolvedValueOnce({ ...UNVERIFIED_USER })
+      repo.createUserWithPerson.mockResolvedValueOnce({
+        user: { ...UNVERIFIED_USER },
+        person: MOCK_PERSON_SNAPSHOT,
+      })
       repo.setRefreshToken.mockResolvedValueOnce(undefined)
       repo.setVerificationToken.mockResolvedValueOnce(undefined)
-      personRepo.create.mockResolvedValueOnce(MOCK_PERSON_RECORD)
       mockedBcrypt.hash.mockResolvedValueOnce('$2b$10$hashed' as never)
 
       const result = await service.register(VALID_INPUT)
 
       expect(result).toHaveProperty('accessToken')
       expect(result).toHaveProperty('refreshToken')
-      expect(result).toHaveProperty('person')
       expect(result.person?.name).toBe('João Silva')
-      expect(repo.createUser).toHaveBeenCalledWith('new@example.com', '$2b$10$hashed')
-      expect(repo.createUser.mock.calls[0][1]).not.toBe('password123')
-      expect(personRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: UNVERIFIED_USER.id, name: 'João Silva', cpf: '52998224725' }),
+      expect(result.person?.id).toBe('person-1')
+      expect(repo.createUserWithPerson).toHaveBeenCalledWith(
+        'new@example.com',
+        '$2b$10$hashed',
+        expect.objectContaining({ name: 'João Silva', cpf: '52998224725' }),
       )
+      expect(repo.createUser).not.toHaveBeenCalled()
+      expect(personRepo.create).not.toHaveBeenCalled()
       expect(repo.setVerificationToken).toHaveBeenCalledWith(
         UNVERIFIED_USER.id,
         expect.any(String),
@@ -163,6 +176,36 @@ describe('AuthService', () => {
         UNVERIFIED_USER.email,
         expect.any(String),
       )
+    })
+
+    it('userId da Person criada é igual ao id do User', async () => {
+      repo.findUserByEmail.mockResolvedValueOnce(null)
+      personRepo.findByCpf.mockResolvedValueOnce(null)
+      repo.createUserWithPerson.mockResolvedValueOnce({
+        user: { ...UNVERIFIED_USER, id: 'user-abc' },
+        person: { ...MOCK_PERSON_SNAPSHOT, userId: 'user-abc' },
+      })
+      repo.setRefreshToken.mockResolvedValueOnce(undefined)
+      repo.setVerificationToken.mockResolvedValueOnce(undefined)
+      mockedBcrypt.hash.mockResolvedValueOnce('$2b$10$hashed' as never)
+
+      const result = await service.register(VALID_INPUT)
+
+      expect(result.user.id).toBe('user-abc')
+      expect(result.person?.id).toBe('person-1')
+    })
+
+    it('nenhuma entidade persiste se createUserWithPerson lança erro (rollback atômico)', async () => {
+      repo.findUserByEmail.mockResolvedValueOnce(null)
+      personRepo.findByCpf.mockResolvedValueOnce(null)
+      repo.createUserWithPerson.mockRejectedValueOnce(
+        new Error('Unique constraint failed on cpf'),
+      )
+      mockedBcrypt.hash.mockResolvedValueOnce('$2b$10$hashed' as never)
+
+      await expect(service.register(VALID_INPUT)).rejects.toThrow()
+      expect(repo.setRefreshToken).not.toHaveBeenCalled()
+      expect(email.sendVerificationEmail).not.toHaveBeenCalled()
     })
   })
 

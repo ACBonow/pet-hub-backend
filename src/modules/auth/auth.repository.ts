@@ -5,12 +5,22 @@
  */
 
 import { prisma } from '../../shared/config/database'
-import type { UserRecord } from './auth.types'
+import type { PersonSnapshot, UserRecord } from './auth.types'
 
 export interface IAuthRepository {
   findUserByEmail(email: string): Promise<UserRecord | null>
   findUserById(id: string): Promise<UserRecord | null>
+  /** @deprecated Use createUserWithPerson para garantir atomicidade. */
   createUser(email: string, passwordHash: string): Promise<UserRecord>
+  /**
+   * Cria User e Person em uma única transação Prisma.
+   * Se qualquer etapa falhar, nenhum registro persiste.
+   */
+  createUserWithPerson(
+    email: string,
+    passwordHash: string,
+    personData: { name: string; cpf: string; phone?: string },
+  ): Promise<{ user: UserRecord; person: PersonSnapshot }>
   setRefreshToken(userId: string, token: string | null): Promise<void>
   findUserByRefreshToken(token: string): Promise<UserRecord | null>
   setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void>
@@ -33,6 +43,25 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async createUser(email: string, passwordHash: string): Promise<UserRecord> {
     return prisma.user.create({ data: { email, passwordHash } })
+  }
+
+  async createUserWithPerson(
+    email: string,
+    passwordHash: string,
+    personData: { name: string; cpf: string; phone?: string },
+  ): Promise<{ user: UserRecord; person: PersonSnapshot }> {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email, passwordHash } })
+      const person = await tx.person.create({
+        data: {
+          userId: user.id,
+          name: personData.name,
+          cpf: personData.cpf,
+          phone: personData.phone ?? null,
+        },
+      })
+      return { user, person }
+    })
   }
 
   async setRefreshToken(userId: string, token: string | null): Promise<void> {
