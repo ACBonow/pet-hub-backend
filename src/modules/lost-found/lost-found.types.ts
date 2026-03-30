@@ -28,6 +28,8 @@ export interface LostFoundReport {
   contactEmail: string | null
   contactPhone: string | null
   status: LostFoundStatus
+  organizationId: string | null
+  organization: { id: string; name: string; photoUrl: string | null } | null
   createdAt: Date
   updatedAt: Date
 }
@@ -50,6 +52,7 @@ export interface LostFoundCreateInput {
   photoUrl?: string
   contactEmail: string
   contactPhone?: string
+  organizationId?: string
 }
 
 export interface LostFoundUpdateStatusInput {

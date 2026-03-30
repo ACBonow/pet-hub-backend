@@ -5,10 +5,12 @@
  */
 
 import { HttpError } from '../../shared/errors/HttpError'
+import { AppError } from '../../shared/errors/AppError'
 import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
 import type { ILostFoundRepository } from './lost-found.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
+import type { IOrganizationRepository } from '../organization'
 import type {
   LostFoundCreateInput,
   LostFoundListFilters,
@@ -23,6 +25,7 @@ export class LostFoundService {
     private repository: ILostFoundRepository,
     private petRepository: IPetRepository,
     private personRepository: IPersonRepository,
+    private orgRepository: IOrganizationRepository,
   ) {}
 
   async createForUser(userId: string, input: CreateLostFoundBody): Promise<LostFoundReport> {
@@ -38,10 +41,27 @@ export class LostFoundService {
       }
     }
 
+    let organizationId: string | undefined = undefined
+
+    if (input.organizationId) {
+      const org = await this.orgRepository.findById(input.organizationId)
+      if (!org) {
+        throw HttpError.notFound('Organização')
+      }
+
+      const role = await this.orgRepository.getRole(input.organizationId, person.id)
+      if (!role || role === 'MEMBER') {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para realizar esta ação na organização.')
+      }
+
+      organizationId = input.organizationId
+    }
+
     const createInput: LostFoundCreateInput = {
       type: input.type,
       petId: input.petId,
       reporterId: person.id,
+      organizationId,
       petName: input.petName,
       species: input.species,
       description: input.description,

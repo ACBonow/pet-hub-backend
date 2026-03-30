@@ -7,6 +7,7 @@
 import type { ILostFoundRepository } from '../lost-found.repository'
 import type { IPetRepository } from '../../pet'
 import type { IPersonRepository } from '../../person'
+import type { IOrganizationRepository } from '../../organization'
 import type { LostFoundReport } from '../lost-found.types'
 import { LostFoundService } from '../lost-found.service'
 
@@ -39,6 +40,8 @@ const MOCK_REPORT: LostFoundReport = {
   contactEmail: 'joao@example.com',
   contactPhone: '11 99999-0000',
   status: 'OPEN',
+  organizationId: null,
+  organization: null,
   createdAt: new Date('2026-03-01'),
   updatedAt: new Date('2026-03-01'),
 }
@@ -110,6 +113,50 @@ function makePersonRepo(overrides: Partial<IPersonRepository> = {}): jest.Mocked
   } as jest.Mocked<IPersonRepository>
 }
 
+const MOCK_ORG = {
+  id: 'org-1',
+  name: 'ONG Amigos dos Pets',
+  type: 'NGO' as const,
+  cnpj: null,
+  description: null,
+  phone: null,
+  email: null,
+  website: null,
+  instagram: null,
+  photoUrl: null,
+  address: null,
+  addressStreet: null,
+  addressNeighborhood: null,
+  addressNumber: null,
+  addressCep: null,
+  addressCity: null,
+  addressState: null,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+}
+
+function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Mocked<IOrganizationRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByCnpj: jest.fn(),
+    findByPersonId: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    addPerson: jest.fn(),
+    removePerson: jest.fn(),
+    personCount: jest.fn(),
+    hasPerson: jest.fn(),
+    getRole: jest.fn(),
+    setRole: jest.fn(),
+    countByRole: jest.fn(),
+    findMembers: jest.fn(),
+    findMembersWithNames: jest.fn(),
+    updatePhotoUrl: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IOrganizationRepository>
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('LostFoundService', () => {
@@ -117,12 +164,14 @@ describe('LostFoundService', () => {
   let lostFoundRepo: jest.Mocked<ILostFoundRepository>
   let petRepo: jest.Mocked<IPetRepository>
   let personRepo: jest.Mocked<IPersonRepository>
+  let orgRepo: jest.Mocked<IOrganizationRepository>
 
   beforeEach(() => {
     lostFoundRepo = makeLostFoundRepo()
     petRepo = makePetRepo()
     personRepo = makePersonRepo()
-    service = new LostFoundService(lostFoundRepo, petRepo, personRepo)
+    orgRepo = makeOrgRepo()
+    service = new LostFoundService(lostFoundRepo, petRepo, personRepo, orgRepo)
   })
 
   // ── createForUser ─────────────────────────────────────────────────────────
@@ -197,6 +246,104 @@ describe('LostFoundService', () => {
           contactPhone: '11 99999-0000',
         }),
       )
+    })
+
+    it('should create report without organizationId using personId as reporterId (existing behavior)', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      lostFoundRepo.create.mockResolvedValueOnce({ ...MOCK_REPORT, reporterId: 'person-1' })
+
+      const result = await service.createForUser('user-1', {
+        type: 'FOUND',
+        description: 'Encontrei um gato.',
+        contactEmail: 'joao@example.com',
+      })
+
+      expect(orgRepo.findById).not.toHaveBeenCalled()
+      expect(lostFoundRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ reporterId: 'person-1', organizationId: undefined }),
+      )
+    })
+
+    it('should create report with organizationId when user is OWNER', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG as any)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      const reportWithOrg = { ...MOCK_REPORT, organizationId: 'org-1', organization: { id: 'org-1', name: 'ONG Amigos dos Pets', photoUrl: null } }
+      lostFoundRepo.create.mockResolvedValueOnce(reportWithOrg)
+
+      const result = await service.createForUser('user-1', {
+        type: 'FOUND',
+        description: 'Animal encontrado.',
+        contactEmail: 'ong@example.com',
+        organizationId: 'org-1',
+      })
+
+      expect(orgRepo.findById).toHaveBeenCalledWith('org-1')
+      expect(orgRepo.getRole).toHaveBeenCalledWith('org-1', 'person-1')
+      expect(lostFoundRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: 'org-1', reporterId: 'person-1' }),
+      )
+      expect(result.organizationId).toBe('org-1')
+    })
+
+    it('should create report with organizationId when user is MANAGER', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG as any)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      lostFoundRepo.create.mockResolvedValueOnce({ ...MOCK_REPORT, organizationId: 'org-1', organization: { id: 'org-1', name: 'ONG Amigos dos Pets', photoUrl: null } })
+
+      await service.createForUser('user-1', {
+        type: 'FOUND',
+        description: 'Animal encontrado.',
+        contactEmail: 'ong@example.com',
+        organizationId: 'org-1',
+      })
+
+      expect(lostFoundRepo.create).toHaveBeenCalled()
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is MEMBER', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG as any)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(
+        service.createForUser('user-1', {
+          type: 'FOUND',
+          description: 'Animal encontrado.',
+          contactEmail: 'ong@example.com',
+          organizationId: 'org-1',
+        }),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not a member', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG as any)
+      orgRepo.getRole.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', {
+          type: 'FOUND',
+          description: 'Animal encontrado.',
+          contactEmail: 'ong@example.com',
+          organizationId: 'org-1',
+        }),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    })
+
+    it('should throw NOT_FOUND when organizationId does not exist', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(
+        service.createForUser('user-1', {
+          type: 'FOUND',
+          description: 'Animal encontrado.',
+          contactEmail: 'ong@example.com',
+          organizationId: 'nonexistent-org',
+        }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
   })
 

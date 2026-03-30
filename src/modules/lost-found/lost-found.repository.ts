@@ -42,6 +42,10 @@ function mapReport(row: any): LostFoundReport {
     contactEmail: row.contactEmail ?? null,
     contactPhone: row.contactPhone ?? null,
     status: row.status as LostFoundStatus,
+    organizationId: row.organizationId ?? null,
+    organization: row.organization
+      ? { id: row.organization.id, name: row.organization.name, photoUrl: row.organization.photoUrl ?? null }
+      : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -49,11 +53,13 @@ function mapReport(row: any): LostFoundReport {
 
 export class PrismaLostFoundRepository implements ILostFoundRepository {
   async create(data: LostFoundCreateInput): Promise<LostFoundReport> {
-    const row = await prisma.lostFoundReport.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = await (prisma.lostFoundReport as any).create({
       data: {
-        type: data.type as any,
+        type: data.type,
         petId: data.petId ?? null,
         reporterId: data.reporterId,
+        organizationId: data.organizationId ?? null,
         petName: data.petName ?? null,
         species: data.species ?? null,
         description: data.description,
@@ -70,12 +76,17 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
         contactPhone: data.contactPhone ?? null,
         status: 'OPEN',
       },
+      include: { organization: { select: { id: true, name: true, photoUrl: true } } },
     })
     return mapReport(row)
   }
 
   async findById(id: string): Promise<LostFoundReport | null> {
-    const row = await prisma.lostFoundReport.findUnique({ where: { id } })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = await (prisma.lostFoundReport as any).findUnique({
+      where: { id },
+      include: { organization: { select: { id: true, name: true, photoUrl: true } } },
+    })
     return row ? mapReport(row) : null
   }
 
@@ -87,12 +98,14 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
     if (filters.type) where['type'] = filters.type
     if (filters.status) where['status'] = filters.status
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [rows, total] = await prisma.$transaction([
-      prisma.lostFoundReport.findMany({
+      (prisma.lostFoundReport as any).findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
+        include: { organization: { select: { id: true, name: true, photoUrl: true } } },
       }),
       prisma.lostFoundReport.count({ where }),
     ])

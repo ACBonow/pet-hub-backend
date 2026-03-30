@@ -30,6 +30,7 @@ export const CreateLostFoundSchema = z.object({
   addressNotes: z.string().optional(),
   contactEmail: z.string().email('Email de contato inválido.'),
   contactPhone: z.string().optional().nullable(),
+  organizationId: z.string().uuid('ID da organização inválido.').optional(),
 })
 
 export const UpdateLostFoundStatusSchema = z.object({

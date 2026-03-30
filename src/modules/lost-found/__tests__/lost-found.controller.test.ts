@@ -29,6 +29,8 @@ const MOCK_REPORT = {
   contactEmail: 'joao@example.com',
   contactPhone: '11 99999-0000',
   status: 'OPEN',
+  organizationId: null,
+  organization: null,
   createdAt: new Date('2026-03-01').toISOString(),
   updatedAt: new Date('2026-03-01').toISOString(),
 }
@@ -195,6 +197,33 @@ describe('LostFound routes', () => {
 
       expect(response.statusCode).toBe(404)
     })
+
+    it('returns 201 with organizationId (MANAGER)', async () => {
+      const reportWithOrg = {
+        ...MOCK_REPORT,
+        organizationId: 'org-1',
+        organization: { id: 'org-1', name: 'ONG Amigos dos Pets', photoUrl: null },
+      }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.createForUser).mockResolvedValueOnce(reportWithOrg as any)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/lost-found',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: {
+          type: 'FOUND',
+          description: 'Animal encontrado pela ONG.',
+          contactEmail: 'ong@example.com',
+          organizationId: 'b1c2d3e4-f5a6-7890-abcd-ef1234567800',
+        },
+      })
+
+      expect(response.statusCode).toBe(201)
+      const body = response.json()
+      expect(body.data.organizationId).toBe('org-1')
+      expect(body.data.organization.name).toBe('ONG Amigos dos Pets')
+    })
   })
 
   // ── GET /api/v1/lost-found ────────────────────────────────────────────────
@@ -256,6 +285,30 @@ describe('LostFound routes', () => {
       })
 
       expect(response.statusCode).toBe(400)
+    })
+
+    it('returns reports with organization data when created by org', async () => {
+      const reportWithOrg = {
+        ...MOCK_REPORT,
+        organizationId: 'org-1',
+        organization: { id: 'org-1', name: 'ONG Amigos dos Pets', photoUrl: null },
+      }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({
+        data: [reportWithOrg as any],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/lost-found',
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.data[0].organization.name).toBe('ONG Amigos dos Pets')
     })
   })
 

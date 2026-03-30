@@ -90,6 +90,7 @@ model Organization {
   coTutoredPets      CoTutor[]            @relation("OrgCoTutor")
   adoptionListings   AdoptionListing[]    @relation("OrgAdoption")
   serviceListings    ServiceListing[]
+  lostFoundReports   LostFoundReport[]
 
   @@index([cnpj])
   @@map("organizations")
@@ -247,12 +248,14 @@ model LostFoundReport {
   contactInfo         String?         @map("contact_info")
   contactEmail        String?         @map("contact_email")
   contactPhone        String?         @map("contact_phone")
+  organizationId      String?         @map("organization_id")
   status              LostFoundStatus @default(OPEN)
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
 
-  pet      Pet?   @relation(fields: [petId], references: [id])
-  reporter Person @relation(fields: [reporterId], references: [id])
+  pet          Pet?          @relation(fields: [petId], references: [id])
+  reporter     Person        @relation(fields: [reporterId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([type, status])
   @@map("lost_found_reports")

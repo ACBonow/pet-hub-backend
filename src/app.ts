@@ -68,7 +68,7 @@ export function buildApp(): FastifyInstance {
   registerAdoptionRoutes(app, adoptionService)
 
   // Lost & Found routes
-  const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository)
+  const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository, new PrismaOrganizationRepository())
   registerLostFoundRoutes(app, lostFoundService)
 
   // Pet Health routes
