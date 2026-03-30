@@ -29,6 +29,7 @@ export interface IOrganizationRepository {
   setRole(organizationId: string, personId: string, role: OrgRole): Promise<void>
   countByRole(organizationId: string, role: OrgRole): Promise<number>
   findMembers(organizationId: string): Promise<OrganizationPersonRecord[]>
+  updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
 }
 
 function mapOrg(org: any): OrganizationRecord {
@@ -42,6 +43,7 @@ function mapOrg(org: any): OrganizationRecord {
     email: org.email ?? null,
     website: org.website ?? null,
     instagram: org.instagram ?? null,
+    photoUrl: org.photoUrl ?? null,
     addressStreet: org.addressStreet ?? null,
     addressNeighborhood: org.addressNeighborhood ?? null,
     addressNumber: org.addressNumber ?? null,
@@ -171,5 +173,9 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
   async findMembers(organizationId: string): Promise<OrganizationPersonRecord[]> {
     const members = await prisma.organizationPerson.findMany({ where: { organizationId } })
     return members.map(mapMember)
+  }
+
+  async updatePhotoUrl(id: string, photoUrl: string | null): Promise<void> {
+    await prisma.organization.update({ where: { id }, data: { photoUrl } })
   }
 }

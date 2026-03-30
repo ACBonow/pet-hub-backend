@@ -71,6 +71,7 @@ const MOCK_ORG = {
   email: null,
   website: null,
   instagram: null,
+  photoUrl: null,
   address: null,
   addressStreet: null,
   addressNeighborhood: null,

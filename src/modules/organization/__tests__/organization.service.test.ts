@@ -8,6 +8,13 @@ import type { IOrganizationRepository } from '../organization.repository'
 import type { IPersonRepository } from '../../person'
 import type { OrganizationRecord } from '../organization.types'
 import { OrganizationService } from '../organization.service'
+import * as storage from '../../../shared/utils/storage'
+
+jest.mock('../../../shared/utils/storage', () => ({
+  uploadFile: jest.fn(),
+  deleteFile: jest.fn(),
+  extractPathFromUrl: jest.requireActual('../../../shared/utils/storage').extractPathFromUrl,
+}))
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -21,6 +28,7 @@ const MOCK_ORG: OrganizationRecord = {
   email: null,
   website: null,
   instagram: null,
+  photoUrl: null,
   addressStreet: null,
   addressNeighborhood: null,
   addressNumber: null,
@@ -56,6 +64,7 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     setRole: jest.fn(),
     countByRole: jest.fn(),
     findMembers: jest.fn(),
+    updatePhotoUrl: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
 }
@@ -522,6 +531,74 @@ describe('OrganizationService', () => {
       const result = await service.findById('org-1', 'user-1')
 
       expect(result.myRole).toBeUndefined()
+    })
+  })
+
+  // ── uploadPhoto ───────────────────────────────────────────────────────────
+
+  describe('uploadPhoto', () => {
+    const FILE = Buffer.from('fake-image')
+    const MIME = 'image/jpeg'
+
+    beforeEach(() => {
+      jest.mocked(storage.uploadFile).mockResolvedValue('https://cdn.example.com/org-images/org-1/123.jpg')
+      jest.mocked(storage.deleteFile).mockResolvedValue(undefined)
+    })
+
+    it('should upload photo and return updated org', async () => {
+      const updatedOrg = { ...MOCK_ORG, photoUrl: 'https://cdn.example.com/org-images/org-1/123.jpg' }
+      orgRepo.findById
+        .mockResolvedValueOnce(MOCK_ORG)   // initial check
+        .mockResolvedValueOnce(updatedOrg)  // after update
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      orgRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      const result = await service.uploadPhoto('org-1', 'user-1', FILE, MIME)
+
+      expect(storage.uploadFile).toHaveBeenCalledWith('org-images', expect.stringContaining('org-1/'), FILE, MIME)
+      expect(orgRepo.updatePhotoUrl).toHaveBeenCalledWith('org-1', expect.any(String))
+      expect(result.photoUrl).toBe('https://cdn.example.com/org-images/org-1/123.jpg')
+    })
+
+    it('should delete old photo before uploading new one', async () => {
+      const orgWithPhoto = { ...MOCK_ORG, photoUrl: 'https://cdn.example.com/org-images/org-1/old.jpg' }
+      const updatedOrg = { ...MOCK_ORG, photoUrl: 'https://cdn.example.com/org-images/org-1/new.jpg' }
+      orgRepo.findById
+        .mockResolvedValueOnce(orgWithPhoto)
+        .mockResolvedValueOnce(updatedOrg)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      orgRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
+
+      await service.uploadPhoto('org-1', 'user-1', FILE, MIME)
+
+      expect(storage.deleteFile).toHaveBeenCalledWith('org-images', expect.any(String))
+    })
+
+    it('should throw NOT_FOUND when org does not exist', async () => {
+      orgRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.uploadPhoto('nonexistent', 'user-1', FILE, MIME))
+        .rejects.toMatchObject({ statusCode: 404 })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not a member', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce(null)
+
+      await expect(service.uploadPhoto('org-1', 'user-1', FILE, MIME))
+        .rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is MEMBER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(service.uploadPhoto('org-1', 'user-1', FILE, MIME))
+        .rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
     })
   })
 })

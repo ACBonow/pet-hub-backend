@@ -24,4 +24,5 @@ export function registerOrganizationRoutes(app: FastifyInstance, service: Organi
   app.post('/api/v1/organizations/:id/members', { ...auth, handler: controller.addMember.bind(controller) })
   app.patch('/api/v1/organizations/:id/members/:personId/role', { ...auth, handler: controller.changeMemberRole.bind(controller) })
   app.delete('/api/v1/organizations/:id/members/:personId', { ...auth, handler: controller.removeMember.bind(controller) })
+  app.patch('/api/v1/organizations/:id/photo', { ...auth, handler: controller.uploadPhoto.bind(controller) })
 }

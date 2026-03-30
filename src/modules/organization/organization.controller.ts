@@ -110,4 +110,40 @@ export class OrganizationController {
     await this.service.removePerson(request.params.id, request.params.personId)
     return reply.status(204).send()
   }
+
+  async uploadPhoto(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    if (!request.isMultipart()) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'NO_FILE', message: 'Nenhum arquivo enviado.' },
+      })
+    }
+
+    const data = await request.file()
+    if (!data) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'NO_FILE', message: 'Nenhum arquivo enviado.' },
+      })
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(data.mimetype)) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'INVALID_FILE_TYPE', message: 'Tipo inválido. Use JPEG, PNG ou WebP.' },
+      })
+    }
+
+    const buffer = await data.toBuffer()
+    if (buffer.length > 5 * 1024 * 1024) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'FILE_TOO_LARGE', message: 'Arquivo muito grande. Limite: 5 MB.' },
+      })
+    }
+
+    const org = await this.service.uploadPhoto(request.params.id, request.user!.id, buffer, data.mimetype)
+    return reply.status(200).send({ success: true, data: org })
+  }
 }

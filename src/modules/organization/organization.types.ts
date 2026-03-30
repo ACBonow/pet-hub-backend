@@ -57,6 +57,7 @@ export interface OrganizationRecord {
   email: string | null
   website: string | null
   instagram: string | null
+  photoUrl: string | null
   addressStreet: string | null
   addressNeighborhood: string | null
   addressNumber: string | null

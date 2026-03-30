@@ -731,6 +731,98 @@ describe('Organization routes', () => {
     })
   })
 
+  // ── PATCH /api/v1/organizations/:id/photo ────────────────────────────────
+
+  describe('PATCH /api/v1/organizations/:id/photo', () => {
+    it('returns 200 with updated org on successful upload', async () => {
+      const { app, service } = await buildTestApp()
+      const updatedOrg = { ...MOCK_ORG, photoUrl: 'https://cdn.example.com/org-images/org-1/123.jpg' }
+      jest.mocked(service.uploadPhoto).mockResolvedValueOnce(updatedOrg as any)
+
+      const token = makeAuthToken()
+      const boundary = 'boundary'
+      const body = [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="file"; filename="photo.jpg"',
+        'Content-Type: image/jpeg',
+        '',
+        'fake',
+        `--${boundary}--`,
+      ].join('\r\n')
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/photo',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+        },
+        payload: Buffer.from(body),
+      })
+
+      expect(jest.mocked(service.uploadPhoto)).toHaveBeenCalled()
+      expect(response.statusCode).toBe(200)
+      const resBody = response.json()
+      expect(resBody.success).toBe(true)
+      expect(resBody.data.photoUrl).toBe('https://cdn.example.com/org-images/org-1/123.jpg')
+
+      await app.close()
+    })
+
+    it('returns 400 NO_FILE when content-type is not multipart', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/photo',
+        headers: { authorization: `Bearer ${makeAuthToken()}`, 'content-type': 'application/json' },
+        payload: '{}',
+      })
+
+      expect(response.statusCode).toBe(400)
+      const body = response.json()
+      expect(body.error.code).toBe('NO_FILE')
+
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/photo',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+
+    it('returns 403 when user has insufficient permission', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.uploadPhoto).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Permissão insuficiente.'),
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/photo',
+        headers: {
+          authorization: `Bearer ${makeAuthToken()}`,
+          'content-type': 'multipart/form-data; boundary=boundary',
+        },
+        payload: Buffer.from('--boundary\r\nContent-Disposition: form-data; name="file"; filename="photo.jpg"\r\nContent-Type: image/jpeg\r\n\r\nfake\r\n--boundary--'),
+      })
+
+      expect(response.statusCode).toBe(403)
+      const body = response.json()
+      expect(body.error.code).toBe('INSUFFICIENT_PERMISSION')
+
+      await app.close()
+    })
+  })
+
   // ── DELETE /api/v1/organizations/:id/members/:personId ───────────────────
 
   describe('DELETE /api/v1/organizations/:id/members/:personId', () => {

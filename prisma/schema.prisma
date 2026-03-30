@@ -74,6 +74,7 @@ model Organization {
   email               String?
   website             String?
   instagram           String?
+  photoUrl            String?  @map("photo_url")
   address             String?  // legacy free-text
   addressStreet       String?  @map("address_street")
   addressNeighborhood String?  @map("address_neighborhood")
