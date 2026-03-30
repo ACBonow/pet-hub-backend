@@ -588,41 +588,39 @@ describe('Organization routes', () => {
   // ── POST /api/v1/organizations/:id/members ────────────────────────────────
 
   describe('POST /api/v1/organizations/:id/members', () => {
-    it('returns 201 when member is added with role', async () => {
+    it('returns 201 when OWNER adds member by CPF with role', async () => {
       const { app, service } = await buildTestApp()
-      const personId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-      jest.mocked(service.addPerson).mockResolvedValueOnce(undefined)
+      jest.mocked(service.addMember).mockResolvedValueOnce(undefined)
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/organizations/org-1/members',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { personId, role: 'MANAGER' },
+        payload: { cpf: '52998224725', role: 'MANAGER' },
       })
 
       expect(response.statusCode).toBe(201)
-      expect(jest.mocked(service.addPerson)).toHaveBeenCalledWith('org-1', personId, 'MANAGER')
+      expect(jest.mocked(service.addMember)).toHaveBeenCalledWith('org-1', '52998224725', 'MANAGER', 'user-1')
       await app.close()
     })
 
     it('returns 201 with default MEMBER role when role omitted', async () => {
       const { app, service } = await buildTestApp()
-      const personId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-      jest.mocked(service.addPerson).mockResolvedValueOnce(undefined)
+      jest.mocked(service.addMember).mockResolvedValueOnce(undefined)
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/organizations/org-1/members',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { personId },
+        payload: { cpf: '52998224725' },
       })
 
       expect(response.statusCode).toBe(201)
-      expect(jest.mocked(service.addPerson)).toHaveBeenCalledWith('org-1', personId, 'MEMBER')
+      expect(jest.mocked(service.addMember)).toHaveBeenCalledWith('org-1', '52998224725', 'MEMBER', 'user-1')
       await app.close()
     })
 
-    it('returns 400 when personId is missing', async () => {
+    it('returns 400 when cpf is missing', async () => {
       const { app } = await buildTestApp()
 
       const response = await app.inject({
@@ -643,10 +641,30 @@ describe('Organization routes', () => {
         method: 'POST',
         url: '/api/v1/organizations/org-1/members',
         headers: { authorization: `Bearer ${makeAuthToken()}` },
-        payload: { personId: 'person-2', role: 'SUPERUSER' },
+        payload: { cpf: '52998224725', role: 'SUPERUSER' },
       })
 
       expect(response.statusCode).toBe(400)
+      await app.close()
+    })
+
+    it('returns 403 when requester is not OWNER', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.addMember).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode adicionar membros.'),
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { cpf: '52998224725', role: 'MEMBER' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      const body = response.json()
+      expect(body.error.code).toBe('INSUFFICIENT_PERMISSION')
       await app.close()
     })
 
@@ -656,7 +674,7 @@ describe('Organization routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/organizations/org-1/members',
-        payload: { personId: 'person-2', role: 'MEMBER' },
+        payload: { cpf: '52998224725', role: 'MEMBER' },
       })
 
       expect(response.statusCode).toBe(401)

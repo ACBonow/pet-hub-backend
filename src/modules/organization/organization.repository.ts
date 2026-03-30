@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client'
 import type {
   OrgRole,
   OrganizationCreateInput,
+  OrganizationMemberView,
   OrganizationPersonRecord,
   OrganizationRecord,
   OrganizationUpdateInput,
@@ -29,6 +30,7 @@ export interface IOrganizationRepository {
   setRole(organizationId: string, personId: string, role: OrgRole): Promise<void>
   countByRole(organizationId: string, role: OrgRole): Promise<number>
   findMembers(organizationId: string): Promise<OrganizationPersonRecord[]>
+  findMembersWithNames(organizationId: string): Promise<OrganizationMemberView[]>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
 }
 
@@ -173,6 +175,19 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
   async findMembers(organizationId: string): Promise<OrganizationPersonRecord[]> {
     const members = await prisma.organizationPerson.findMany({ where: { organizationId } })
     return members.map(mapMember)
+  }
+
+  async findMembersWithNames(organizationId: string): Promise<OrganizationMemberView[]> {
+    const members = await prisma.organizationPerson.findMany({
+      where: { organizationId },
+      include: { person: true },
+    })
+    return members.map((m: any) => ({
+      personId: m.personId,
+      name: m.person.name,
+      role: m.role as OrgRole,
+      assignedAt: m.assignedAt,
+    }))
   }
 
   async updatePhotoUrl(id: string, photoUrl: string | null): Promise<void> {

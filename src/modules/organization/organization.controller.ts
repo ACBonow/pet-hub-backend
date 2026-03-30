@@ -84,7 +84,7 @@ export class OrganizationController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    await this.service.addPerson(request.params.id, parsed.data.personId, parsed.data.role)
+    await this.service.addMember(request.params.id, parsed.data.cpf, parsed.data.role, request.user!.id)
     return reply.status(201).send({ success: true })
   }
 

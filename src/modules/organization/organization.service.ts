@@ -14,6 +14,7 @@ import type { IPersonRepository } from '../person'
 import type {
   OrgRole,
   OrganizationCreateInput,
+  OrganizationMemberView,
   OrganizationPersonRecord,
   OrganizationRecord,
   OrganizationUpdateInput,
@@ -170,12 +171,40 @@ export class OrganizationService {
     await this.repository.setRole(organizationId, personId, newRole)
   }
 
-  async getMembers(organizationId: string): Promise<OrganizationPersonRecord[]> {
+  async getMembers(organizationId: string): Promise<OrganizationMemberView[]> {
     const org = await this.repository.findById(organizationId)
     if (!org) {
       throw HttpError.notFound('Organização')
     }
-    return this.repository.findMembers(organizationId)
+    return this.repository.findMembersWithNames(organizationId)
+  }
+
+  async addMember(orgId: string, cpf: string, role: OrgRole, requestingUserId: string): Promise<void> {
+    const org = await this.repository.findById(orgId)
+    if (!org) {
+      throw HttpError.notFound('Organização')
+    }
+
+    // Verify requester is OWNER
+    const requester = await this.personRepository.findByUserId(requestingUserId)
+    const requesterRole = requester ? await this.repository.getRole(orgId, requester.id) : null
+    if (requesterRole !== 'OWNER') {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode adicionar membros.')
+    }
+
+    // Find target person by CPF
+    const targetPerson = await this.personRepository.findByCpf(cpf)
+    if (!targetPerson) {
+      throw new AppError(404, 'PERSON_NOT_FOUND', 'Nenhuma pessoa encontrada com este CPF.')
+    }
+
+    // Check not already a member
+    const isMember = await this.repository.hasPerson(orgId, targetPerson.id)
+    if (isMember) {
+      throw HttpError.conflict('ALREADY_A_MEMBER', 'Esta pessoa já é membro da organização.')
+    }
+
+    await this.repository.addPerson(orgId, targetPerson.id, role)
   }
 
   async uploadPhoto(orgId: string, userId: string, file: Buffer, mimeType: string): Promise<OrganizationRecord> {

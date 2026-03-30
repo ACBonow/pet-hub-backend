@@ -47,6 +47,13 @@ export interface OrganizationUpdateInput {
   addressState?: string | null
 }
 
+export interface OrganizationMemberView {
+  personId: string
+  name: string
+  role: OrgRole
+  assignedAt: Date
+}
+
 export interface OrganizationRecord {
   id: string
   name: string

@@ -64,6 +64,7 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     setRole: jest.fn(),
     countByRole: jest.fn(),
     findMembers: jest.fn(),
+    findMembersWithNames: jest.fn(),
     updatePhotoUrl: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
@@ -444,17 +445,84 @@ describe('OrganizationService', () => {
       })
     })
 
-    it('should return members of the organization', async () => {
+    it('should return enriched members with names', async () => {
       const members = [
-        { organizationId: 'org-1', personId: 'person-1', role: 'OWNER' as const, assignedAt: new Date() },
-        { organizationId: 'org-1', personId: 'person-2', role: 'MEMBER' as const, assignedAt: new Date() },
+        { personId: 'person-1', name: 'João Silva', role: 'OWNER' as const, assignedAt: new Date() },
+        { personId: 'person-2', name: 'Maria Souza', role: 'MEMBER' as const, assignedAt: new Date() },
       ]
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      orgRepo.findMembers.mockResolvedValueOnce(members)
+      orgRepo.findMembersWithNames.mockResolvedValueOnce(members)
 
       const result = await service.getMembers('org-1')
 
       expect(result).toEqual(members)
+      expect(result[0].name).toBe('João Silva')
+    })
+  })
+
+  // ── addMember ─────────────────────────────────────────────────────────────
+
+  describe('addMember', () => {
+    const REQUESTER_PERSON = { ...MOCK_PERSON, id: 'person-1', userId: 'user-1' }
+    const TARGET_PERSON = { ...MOCK_PERSON, id: 'person-99', cpf: '52998224725' }
+
+    it('should add member with given role when requester is OWNER and CPF is valid', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      personRepo.findByCpf.mockResolvedValueOnce(TARGET_PERSON)
+      orgRepo.hasPerson.mockResolvedValueOnce(false)
+      orgRepo.addPerson.mockResolvedValueOnce(undefined)
+
+      await service.addMember('org-1', '52998224725', 'MANAGER', 'user-1')
+
+      expect(orgRepo.addPerson).toHaveBeenCalledWith('org-1', TARGET_PERSON.id, 'MANAGER')
+    })
+
+    it('should throw PERSON_NOT_FOUND when CPF does not match any Person', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      personRepo.findByCpf.mockResolvedValueOnce(null)
+
+      await expect(service.addMember('org-1', '00000000000', 'MEMBER', 'user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'PERSON_NOT_FOUND',
+      })
+    })
+
+    it('should throw ALREADY_A_MEMBER when person is already in the org', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      personRepo.findByCpf.mockResolvedValueOnce(TARGET_PERSON)
+      orgRepo.hasPerson.mockResolvedValueOnce(true)
+
+      await expect(service.addMember('org-1', '52998224725', 'MEMBER', 'user-1')).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'ALREADY_A_MEMBER',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when requester is MANAGER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+
+      await expect(service.addMember('org-1', '52998224725', 'MEMBER', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when requester has no person profile', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.addMember('org-1', '52998224725', 'MEMBER', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
     })
   })
 

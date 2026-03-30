@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { sanitizeCnpj } from '../../shared/validators/cnpj.validator'
+import { sanitizeCpf } from '../../shared/validators/cpf.validator'
 
 export const CreateOrganizationSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.'),
@@ -45,7 +46,7 @@ export const UpdateOrganizationSchema = z.object({
 })
 
 export const AddMemberSchema = z.object({
-  personId: z.string().uuid('ID da pessoa inválido.'),
+  cpf: z.string().min(11, 'CPF inválido.').transform(v => sanitizeCpf(v)),
   role: z.enum(['OWNER', 'MANAGER', 'MEMBER']).default('MEMBER'),
 })
 
@@ -56,4 +57,5 @@ export const ChangeRoleSchema = z.object({
 export type CreateOrganizationBody = z.infer<typeof CreateOrganizationSchema>
 export type UpdateOrganizationBody = z.infer<typeof UpdateOrganizationSchema>
 export type AddMemberBody = z.infer<typeof AddMemberSchema>
+// AddMemberBody.cpf is already sanitized (digits only) by the transform
 export type ChangeRoleBody = z.infer<typeof ChangeRoleSchema>
