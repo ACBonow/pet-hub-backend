@@ -44,5 +44,16 @@ export const UpdateOrganizationSchema = z.object({
   addressState: z.string().nullable().optional(),
 })
 
+export const AddMemberSchema = z.object({
+  personId: z.string().uuid('ID da pessoa inválido.'),
+  role: z.enum(['OWNER', 'MANAGER', 'MEMBER']).default('MEMBER'),
+})
+
+export const ChangeRoleSchema = z.object({
+  role: z.enum(['OWNER', 'MANAGER', 'MEMBER'], { message: 'Papel deve ser OWNER, MANAGER ou MEMBER.' }),
+})
+
 export type CreateOrganizationBody = z.infer<typeof CreateOrganizationSchema>
 export type UpdateOrganizationBody = z.infer<typeof UpdateOrganizationSchema>
+export type AddMemberBody = z.infer<typeof AddMemberSchema>
+export type ChangeRoleBody = z.infer<typeof ChangeRoleSchema>

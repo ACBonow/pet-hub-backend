@@ -7,7 +7,9 @@
 import { prisma } from '../../shared/config/database'
 import type { Prisma } from '@prisma/client'
 import type {
+  OrgRole,
   OrganizationCreateInput,
+  OrganizationPersonRecord,
   OrganizationRecord,
   OrganizationUpdateInput,
 } from './organization.types'
@@ -19,10 +21,14 @@ export interface IOrganizationRepository {
   findByPersonId(personId: string): Promise<OrganizationRecord[]>
   update(id: string, data: OrganizationUpdateInput): Promise<OrganizationRecord>
   delete(id: string): Promise<void>
-  addPerson(organizationId: string, personId: string): Promise<void>
+  addPerson(organizationId: string, personId: string, role?: OrgRole): Promise<void>
   removePerson(organizationId: string, personId: string): Promise<void>
   personCount(organizationId: string): Promise<number>
   hasPerson(organizationId: string, personId: string): Promise<boolean>
+  getRole(organizationId: string, personId: string): Promise<OrgRole | null>
+  setRole(organizationId: string, personId: string, role: OrgRole): Promise<void>
+  countByRole(organizationId: string, role: OrgRole): Promise<number>
+  findMembers(organizationId: string): Promise<OrganizationPersonRecord[]>
 }
 
 function mapOrg(org: any): OrganizationRecord {
@@ -44,7 +50,21 @@ function mapOrg(org: any): OrganizationRecord {
     addressState: org.addressState ?? null,
     createdAt: org.createdAt,
     updatedAt: org.updatedAt,
-    responsiblePersons: org.responsiblePersons ?? [],
+    responsiblePersons: (org.responsiblePersons ?? []).map((p: any) => ({
+      organizationId: p.organizationId,
+      personId: p.personId,
+      role: p.role as OrgRole ?? 'MEMBER',
+      assignedAt: p.assignedAt,
+    })),
+  }
+}
+
+function mapMember(m: any): OrganizationPersonRecord {
+  return {
+    organizationId: m.organizationId,
+    personId: m.personId,
+    role: m.role as OrgRole,
+    assignedAt: m.assignedAt,
   }
 }
 
@@ -73,12 +93,12 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
         include,
       })
 
-      // responsiblePersonId is always resolved by the service before reaching the repository
+      // responsiblePersonId is always resolved by the service — creator gets OWNER role
       await tx.organizationPerson.create({
-        data: { organizationId: org.id, personId: data.responsiblePersonId! },
+        data: { organizationId: org.id, personId: data.responsiblePersonId!, role: 'OWNER' },
       })
 
-      return mapOrg({ ...org, responsiblePersons: [{ organizationId: org.id, personId: data.responsiblePersonId!, assignedAt: new Date() }] })
+      return mapOrg({ ...org, responsiblePersons: [{ organizationId: org.id, personId: data.responsiblePersonId!, role: 'OWNER', assignedAt: new Date() }] })
     })
   }
 
@@ -109,8 +129,8 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
     await prisma.organization.delete({ where: { id } })
   }
 
-  async addPerson(organizationId: string, personId: string): Promise<void> {
-    await prisma.organizationPerson.create({ data: { organizationId, personId } })
+  async addPerson(organizationId: string, personId: string, role: OrgRole = 'MEMBER'): Promise<void> {
+    await prisma.organizationPerson.create({ data: { organizationId, personId, role } })
   }
 
   async removePerson(organizationId: string, personId: string): Promise<void> {
@@ -128,5 +148,28 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
       where: { organizationId, personId },
     })
     return count > 0
+  }
+
+  async getRole(organizationId: string, personId: string): Promise<OrgRole | null> {
+    const m = await prisma.organizationPerson.findUnique({
+      where: { organizationId_personId: { organizationId, personId } },
+    })
+    return m ? (m.role as OrgRole) : null
+  }
+
+  async setRole(organizationId: string, personId: string, role: OrgRole): Promise<void> {
+    await prisma.organizationPerson.update({
+      where: { organizationId_personId: { organizationId, personId } },
+      data: { role },
+    })
+  }
+
+  async countByRole(organizationId: string, role: OrgRole): Promise<number> {
+    return prisma.organizationPerson.count({ where: { organizationId, role } })
+  }
+
+  async findMembers(organizationId: string): Promise<OrganizationPersonRecord[]> {
+    const members = await prisma.organizationPerson.findMany({ where: { organizationId } })
+    return members.map(mapMember)
   }
 }

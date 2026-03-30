@@ -5,10 +5,12 @@
  */
 
 export type OrgType = 'COMPANY' | 'NGO'
+export type OrgRole = 'OWNER' | 'MANAGER' | 'MEMBER'
 
 export interface OrganizationPersonRecord {
   organizationId: string
   personId: string
+  role: OrgRole
   assignedAt: Date
 }
 
@@ -64,4 +66,5 @@ export interface OrganizationRecord {
   createdAt: Date
   updatedAt: Date
   responsiblePersons: OrganizationPersonRecord[]
+  myRole?: OrgRole
 }

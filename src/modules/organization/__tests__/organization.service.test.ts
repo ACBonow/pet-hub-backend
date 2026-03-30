@@ -29,7 +29,7 @@ const MOCK_ORG: OrganizationRecord = {
   addressState: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
-  responsiblePersons: [{ organizationId: 'org-1', personId: 'person-1', assignedAt: new Date('2026-01-01') }],
+  responsiblePersons: [{ organizationId: 'org-1', personId: 'person-1', role: 'OWNER', assignedAt: new Date('2026-01-01') }],
 }
 
 const MOCK_COMPANY: OrganizationRecord = {
@@ -52,6 +52,10 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     removePerson: jest.fn(),
     personCount: jest.fn(),
     hasPerson: jest.fn(),
+    getRole: jest.fn(),
+    setRole: jest.fn(),
+    countByRole: jest.fn(),
+    findMembers: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
 }
@@ -294,14 +298,24 @@ describe('OrganizationService', () => {
       })
     })
 
-    it('should add person to organization', async () => {
+    it('should add person with MEMBER role by default', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
       personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
       orgRepo.addPerson.mockResolvedValueOnce(undefined)
 
       await service.addPerson('org-1', 'person-1')
 
-      expect(orgRepo.addPerson).toHaveBeenCalledWith('org-1', 'person-1')
+      expect(orgRepo.addPerson).toHaveBeenCalledWith('org-1', 'person-1', 'MEMBER')
+    })
+
+    it('should add person with explicit role when provided', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findById.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.addPerson.mockResolvedValueOnce(undefined)
+
+      await service.addPerson('org-1', 'person-1', 'MANAGER')
+
+      expect(orgRepo.addPerson).toHaveBeenCalledWith('org-1', 'person-1', 'MANAGER')
     })
   })
 
@@ -317,24 +331,121 @@ describe('OrganizationService', () => {
       })
     })
 
-    it('should throw CANNOT_REMOVE_LAST_PERSON when only one person remains', async () => {
+    it('should throw LAST_OWNER when removing the only OWNER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      orgRepo.personCount.mockResolvedValueOnce(1)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      orgRepo.countByRole.mockResolvedValueOnce(1)
 
       await expect(service.removePerson('org-1', 'person-1')).rejects.toMatchObject({
         statusCode: 409,
-        code: 'CANNOT_REMOVE_LAST_PERSON',
+        code: 'LAST_OWNER',
       })
     })
 
-    it('should remove person from organization when more than one exists', async () => {
+    it('should remove an OWNER when there are multiple owners', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      orgRepo.personCount.mockResolvedValueOnce(2)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      orgRepo.countByRole.mockResolvedValueOnce(2)
       orgRepo.removePerson.mockResolvedValueOnce(undefined)
 
       await service.removePerson('org-1', 'person-2')
 
       expect(orgRepo.removePerson).toHaveBeenCalledWith('org-1', 'person-2')
+    })
+
+    it('should remove a non-owner member freely', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+      orgRepo.removePerson.mockResolvedValueOnce(undefined)
+
+      await service.removePerson('org-1', 'person-2')
+
+      expect(orgRepo.removePerson).toHaveBeenCalledWith('org-1', 'person-2')
+      expect(orgRepo.countByRole).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── changeRole ────────────────────────────────────────────────────────────
+
+  describe('changeRole', () => {
+    it('should throw NOT_FOUND when organization does not exist', async () => {
+      orgRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.changeRole('unknown', 'person-1', 'MANAGER')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw NOT_FOUND when member does not belong to org', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(false)
+
+      await expect(service.changeRole('org-1', 'person-99', 'MANAGER')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw LAST_OWNER when demoting the only OWNER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(true)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      orgRepo.countByRole.mockResolvedValueOnce(1)
+
+      await expect(service.changeRole('org-1', 'person-1', 'MANAGER')).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'LAST_OWNER',
+      })
+    })
+
+    it('should change role when there are multiple owners', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(true)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      orgRepo.countByRole.mockResolvedValueOnce(2)
+      orgRepo.setRole.mockResolvedValueOnce(undefined)
+
+      await service.changeRole('org-1', 'person-2', 'MANAGER')
+
+      expect(orgRepo.setRole).toHaveBeenCalledWith('org-1', 'person-2', 'MANAGER')
+    })
+
+    it('should change role without LAST_OWNER check when new role is OWNER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.hasPerson.mockResolvedValueOnce(true)
+      orgRepo.setRole.mockResolvedValueOnce(undefined)
+
+      await service.changeRole('org-1', 'person-2', 'OWNER')
+
+      expect(orgRepo.setRole).toHaveBeenCalledWith('org-1', 'person-2', 'OWNER')
+      expect(orgRepo.getRole).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── getMembers ────────────────────────────────────────────────────────────
+
+  describe('getMembers', () => {
+    it('should throw NOT_FOUND when organization does not exist', async () => {
+      orgRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.getMembers('unknown')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should return members of the organization', async () => {
+      const members = [
+        { organizationId: 'org-1', personId: 'person-1', role: 'OWNER' as const, assignedAt: new Date() },
+        { organizationId: 'org-1', personId: 'person-2', role: 'MEMBER' as const, assignedAt: new Date() },
+      ]
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      orgRepo.findMembers.mockResolvedValueOnce(members)
+
+      const result = await service.getMembers('org-1')
+
+      expect(result).toEqual(members)
     })
   })
 
@@ -347,8 +458,18 @@ describe('OrganizationService', () => {
 
       const result = await service.findMyOrganizations('user-1')
 
-      expect(result).toEqual([MOCK_ORG])
+      expect(result[0]).toMatchObject({ id: 'org-1' })
       expect(orgRepo.findByPersonId).toHaveBeenCalledWith('person-1')
+    })
+
+    it('should include myRole derived from responsiblePersons', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findByPersonId.mockResolvedValueOnce([MOCK_ORG])
+
+      const result = await service.findMyOrganizations('user-1')
+
+      // MOCK_ORG has person-1 as OWNER in responsiblePersons
+      expect(result[0].myRole).toBe('OWNER')
     })
 
     it('should return empty array when user has no person profile', async () => {
@@ -367,6 +488,40 @@ describe('OrganizationService', () => {
       const result = await service.findMyOrganizations('user-1')
 
       expect(result).toEqual([])
+    })
+  })
+
+  // ── findById with myRole ──────────────────────────────────────────────────
+
+  describe('findById with userId', () => {
+    it('should include myRole when userId is provided and user is a member', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+
+      const result = await service.findById('org-1', 'user-1')
+
+      expect(result.myRole).toBe('OWNER')
+    })
+
+    it('should not include myRole when userId is not provided', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+
+      const result = await service.findById('org-1')
+
+      expect(result.myRole).toBeUndefined()
+    })
+
+    it('should not include myRole when user is not a member', async () => {
+      const orgWithDifferentPerson = {
+        ...MOCK_ORG,
+        responsiblePersons: [{ organizationId: 'org-1', personId: 'person-99', role: 'OWNER' as const, assignedAt: new Date() }],
+      }
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.findById.mockResolvedValueOnce(orgWithDifferentPerson)
+
+      const result = await service.findById('org-1', 'user-1')
+
+      expect(result.myRole).toBeUndefined()
     })
   })
 })

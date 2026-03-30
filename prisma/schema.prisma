@@ -58,6 +58,12 @@ enum OrgType {
   NGO
 }
 
+enum OrgRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
 model Organization {
   id                  String   @id @default(uuid())
   name                String
@@ -91,6 +97,7 @@ model Organization {
 model OrganizationPerson {
   organizationId String   @map("organization_id")
   personId       String   @map("person_id")
+  role           OrgRole  @default(MEMBER)
   assignedAt     DateTime @default(now()) @map("assigned_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

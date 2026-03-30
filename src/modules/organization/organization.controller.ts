@@ -5,7 +5,12 @@
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { CreateOrganizationSchema, UpdateOrganizationSchema } from './organization.schema'
+import {
+  AddMemberSchema,
+  ChangeRoleSchema,
+  CreateOrganizationSchema,
+  UpdateOrganizationSchema,
+} from './organization.schema'
 import type { OrganizationService } from './organization.service'
 
 export class OrganizationController {
@@ -29,7 +34,7 @@ export class OrganizationController {
   }
 
   async getById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const org = await this.service.findById(request.params.id)
+    const org = await this.service.findById(request.params.id, request.user?.id)
     return reply.status(200).send({ success: true, data: org })
   }
 
@@ -59,6 +64,46 @@ export class OrganizationController {
   }
 
   async removePerson(
+    request: FastifyRequest<{ Params: { id: string; personId: string } }>,
+    reply: FastifyReply,
+  ) {
+    await this.service.removePerson(request.params.id, request.params.personId)
+    return reply.status(204).send()
+  }
+
+  async getMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const members = await this.service.getMembers(request.params.id)
+    return reply.status(200).send({ success: true, data: members })
+  }
+
+  async addMember(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const parsed = AddMemberSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.addPerson(request.params.id, parsed.data.personId, parsed.data.role)
+    return reply.status(201).send({ success: true })
+  }
+
+  async changeMemberRole(
+    request: FastifyRequest<{ Params: { id: string; personId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const parsed = ChangeRoleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    await this.service.changeRole(request.params.id, request.params.personId, parsed.data.role)
+    return reply.status(200).send({ success: true })
+  }
+
+  async removeMember(
     request: FastifyRequest<{ Params: { id: string; personId: string } }>,
     reply: FastifyReply,
   ) {

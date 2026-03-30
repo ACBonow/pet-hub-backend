@@ -9,7 +9,13 @@ import { sanitizeCnpj, validateCnpj } from '../../shared/validators/cnpj.validat
 import { HttpError } from '../../shared/errors/HttpError'
 import type { IOrganizationRepository } from './organization.repository'
 import type { IPersonRepository } from '../person'
-import type { OrganizationCreateInput, OrganizationRecord, OrganizationUpdateInput } from './organization.types'
+import type {
+  OrgRole,
+  OrganizationCreateInput,
+  OrganizationPersonRecord,
+  OrganizationRecord,
+  OrganizationUpdateInput,
+} from './organization.types'
 
 export class OrganizationService {
   constructor(
@@ -56,10 +62,19 @@ export class OrganizationService {
     return this.repository.create({ ...input, cnpj, responsiblePersonId })
   }
 
-  async findById(id: string): Promise<OrganizationRecord> {
+  async findById(id: string, userId?: string): Promise<OrganizationRecord> {
     const org = await this.repository.findById(id)
     if (!org) {
       throw HttpError.notFound('Organização')
+    }
+    if (userId) {
+      const person = await this.personRepository.findByUserId(userId)
+      if (person) {
+        const membership = org.responsiblePersons.find(p => p.personId === person.id)
+        if (membership) {
+          return { ...org, myRole: membership.role }
+        }
+      }
     }
     return org
   }
@@ -83,10 +98,14 @@ export class OrganizationService {
   async findMyOrganizations(userId: string): Promise<OrganizationRecord[]> {
     const person = await this.personRepository.findByUserId(userId)
     if (!person) return []
-    return this.repository.findByPersonId(person.id)
+    const orgs = await this.repository.findByPersonId(person.id)
+    return orgs.map(org => {
+      const membership = org.responsiblePersons.find(p => p.personId === person.id)
+      return membership ? { ...org, myRole: membership.role } : org
+    })
   }
 
-  async addPerson(organizationId: string, personId: string): Promise<void> {
+  async addPerson(organizationId: string, personId: string, role: OrgRole = 'MEMBER'): Promise<void> {
     const org = await this.repository.findById(organizationId)
     if (!org) {
       throw HttpError.notFound('Organização')
@@ -97,7 +116,7 @@ export class OrganizationService {
       throw HttpError.notFound('Pessoa')
     }
 
-    await this.repository.addPerson(organizationId, personId)
+    await this.repository.addPerson(organizationId, personId, role)
   }
 
   async removePerson(organizationId: string, personId: string): Promise<void> {
@@ -106,14 +125,52 @@ export class OrganizationService {
       throw HttpError.notFound('Organização')
     }
 
-    const count = await this.repository.personCount(organizationId)
-    if (count <= 1) {
-      throw HttpError.conflict(
-        'CANNOT_REMOVE_LAST_PERSON',
-        'A organização deve ter pelo menos uma pessoa responsável.',
-      )
+    const currentRole = await this.repository.getRole(organizationId, personId)
+    if (currentRole === 'OWNER') {
+      const ownerCount = await this.repository.countByRole(organizationId, 'OWNER')
+      if (ownerCount <= 1) {
+        throw HttpError.conflict(
+          'LAST_OWNER',
+          'Não é possível remover o último OWNER da organização.',
+        )
+      }
     }
 
     await this.repository.removePerson(organizationId, personId)
+  }
+
+  async changeRole(organizationId: string, personId: string, newRole: OrgRole): Promise<void> {
+    const org = await this.repository.findById(organizationId)
+    if (!org) {
+      throw HttpError.notFound('Organização')
+    }
+
+    const hasPerson = await this.repository.hasPerson(organizationId, personId)
+    if (!hasPerson) {
+      throw HttpError.notFound('Membro')
+    }
+
+    if (newRole !== 'OWNER') {
+      const currentRole = await this.repository.getRole(organizationId, personId)
+      if (currentRole === 'OWNER') {
+        const ownerCount = await this.repository.countByRole(organizationId, 'OWNER')
+        if (ownerCount <= 1) {
+          throw HttpError.conflict(
+            'LAST_OWNER',
+            'Não é possível rebaixar o último OWNER da organização.',
+          )
+        }
+      }
+    }
+
+    await this.repository.setRole(organizationId, personId, newRole)
+  }
+
+  async getMembers(organizationId: string): Promise<OrganizationPersonRecord[]> {
+    const org = await this.repository.findById(organizationId)
+    if (!org) {
+      throw HttpError.notFound('Organização')
+    }
+    return this.repository.findMembers(organizationId)
   }
 }

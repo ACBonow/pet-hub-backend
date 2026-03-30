@@ -10,7 +10,9 @@ export type { IOrganizationRepository } from './organization.repository'
 export { registerOrganizationRoutes } from './organization.routes'
 export type {
   OrganizationCreateInput,
+  OrganizationPersonRecord,
   OrganizationRecord,
   OrganizationUpdateInput,
+  OrgRole,
   OrgType,
 } from './organization.types'

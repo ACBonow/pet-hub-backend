@@ -24,8 +24,14 @@ const MOCK_ORG = {
   address: null,
   createdAt: new Date('2026-01-01').toISOString(),
   updatedAt: new Date('2026-01-01').toISOString(),
-  responsiblePersons: [{ organizationId: 'org-1', personId: 'person-1', assignedAt: new Date('2026-01-01').toISOString() }],
+  responsiblePersons: [{ organizationId: 'org-1', personId: 'person-1', role: 'OWNER', assignedAt: new Date('2026-01-01').toISOString() }],
+  myRole: 'OWNER',
 }
+
+const MOCK_MEMBERS = [
+  { organizationId: 'org-1', personId: 'person-1', role: 'OWNER', assignedAt: new Date('2026-01-01').toISOString() },
+  { organizationId: 'org-1', personId: 'person-2', role: 'MEMBER', assignedAt: new Date('2026-01-01').toISOString() },
+]
 
 function makeAuthToken(userId = 'user-1'): string {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET ?? 'test-secret', { expiresIn: '15m' })
@@ -522,6 +528,251 @@ describe('Organization routes', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/organizations/my',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── GET /api/v1/organizations/:id/members ─────────────────────────────────
+
+  describe('GET /api/v1/organizations/:id/members', () => {
+    it('returns 200 with member list', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.getMembers).mockResolvedValueOnce(MOCK_MEMBERS as any)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveLength(2)
+      expect(body.data[0].role).toBe('OWNER')
+
+      await app.close()
+    })
+
+    it('returns 404 when organization not found', async () => {
+      const { app, service } = await buildTestApp()
+      const { HttpError } = await import('../../../shared/errors/HttpError')
+      jest.mocked(service.getMembers).mockRejectedValueOnce(HttpError.notFound('Organização'))
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/nonexistent/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/members',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── POST /api/v1/organizations/:id/members ────────────────────────────────
+
+  describe('POST /api/v1/organizations/:id/members', () => {
+    it('returns 201 when member is added with role', async () => {
+      const { app, service } = await buildTestApp()
+      const personId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+      jest.mocked(service.addPerson).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { personId, role: 'MANAGER' },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(jest.mocked(service.addPerson)).toHaveBeenCalledWith('org-1', personId, 'MANAGER')
+      await app.close()
+    })
+
+    it('returns 201 with default MEMBER role when role omitted', async () => {
+      const { app, service } = await buildTestApp()
+      const personId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+      jest.mocked(service.addPerson).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { personId },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(jest.mocked(service.addPerson)).toHaveBeenCalledWith('org-1', personId, 'MEMBER')
+      await app.close()
+    })
+
+    it('returns 400 when personId is missing', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { role: 'MEMBER' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      await app.close()
+    })
+
+    it('returns 400 when role is invalid', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { personId: 'person-2', role: 'SUPERUSER' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/members',
+        payload: { personId: 'person-2', role: 'MEMBER' },
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── PATCH /api/v1/organizations/:id/members/:personId/role ────────────────
+
+  describe('PATCH /api/v1/organizations/:id/members/:personId/role', () => {
+    it('returns 200 when role is changed', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.changeRole).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/members/person-2/role',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { role: 'MANAGER' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(jest.mocked(service.changeRole)).toHaveBeenCalledWith('org-1', 'person-2', 'MANAGER')
+      await app.close()
+    })
+
+    it('returns 409 when demoting the last OWNER', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.changeRole).mockRejectedValueOnce(
+        new AppError(409, 'LAST_OWNER', 'Não é possível rebaixar o último OWNER da organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/members/person-1/role',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { role: 'MEMBER' },
+      })
+
+      expect(response.statusCode).toBe(409)
+      const body = response.json()
+      expect(body.error.code).toBe('LAST_OWNER')
+      await app.close()
+    })
+
+    it('returns 400 when role is invalid', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/members/person-1/role',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { role: 'INVALID' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/members/person-1/role',
+        payload: { role: 'MANAGER' },
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── DELETE /api/v1/organizations/:id/members/:personId ───────────────────
+
+  describe('DELETE /api/v1/organizations/:id/members/:personId', () => {
+    it('returns 204 when member is removed', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.removePerson).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1/members/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(204)
+      await app.close()
+    })
+
+    it('returns 409 when removing the last OWNER', async () => {
+      const { app, service } = await buildTestApp()
+      const { HttpError } = await import('../../../shared/errors/HttpError')
+      jest.mocked(service.removePerson).mockRejectedValueOnce(
+        HttpError.conflict('LAST_OWNER', 'Não é possível remover o último OWNER da organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1/members/person-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(409)
+      const body = response.json()
+      expect(body.error.code).toBe('LAST_OWNER')
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1/members/person-1',
       })
 
       expect(response.statusCode).toBe(401)
