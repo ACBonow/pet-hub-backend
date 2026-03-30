@@ -334,6 +334,8 @@ model ServiceListing {
   googleMapsUrl      String?  @map("google_maps_url")
   googleBusinessUrl  String?  @map("google_business_url")
   organizationId     String?  @map("organization_id")
+  photoUrl           String?  @map("photo_url")
+  createdByUserId    String?  @map("created_by_user_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

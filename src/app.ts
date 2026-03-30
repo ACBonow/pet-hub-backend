@@ -80,7 +80,12 @@ export function buildApp(): FastifyInstance {
   registerPetHealthRoutes(app, petHealthService)
 
   // Services Directory routes
-  const servicesDirectoryService = new ServicesDirectoryService(new PrismaServicesDirectoryRepository(), new PrismaServiceTypeRepository())
+  const servicesDirectoryService = new ServicesDirectoryService(
+    new PrismaServicesDirectoryRepository(),
+    new PrismaServiceTypeRepository(),
+    personRepository,
+    new PrismaOrganizationRepository(),
+  )
   registerServicesDirectoryRoutes(app, servicesDirectoryService)
 
   return app

@@ -7,6 +7,14 @@
 import type { IServicesDirectoryRepository, IServiceTypeRepository } from '../servicesDirectory.repository'
 import type { ServiceListing, ServiceTypeRecord, PaginatedServiceListings } from '../servicesDirectory.types'
 import { ServicesDirectoryService } from '../servicesDirectory.service'
+import type { IPersonRepository } from '../../person'
+import type { IOrganizationRepository } from '../../organization'
+
+jest.mock('../../../shared/utils/storage', () => ({
+  uploadFile: jest.fn().mockResolvedValue('https://cdn.example.com/service-images/svc-1/123.jpg'),
+  deleteFile: jest.fn().mockResolvedValue(undefined),
+  extractPathFromUrl: jest.fn().mockReturnValue('svc-1/old.jpg'),
+}))
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -43,9 +51,13 @@ const MOCK_LISTING: ServiceListing = {
   googleMapsUrl: null,
   googleBusinessUrl: null,
   organizationId: null,
+  photoUrl: null,
+  createdByUserId: 'user-1',
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 }
+
+const MOCK_PERSON = { id: 'person-1', userId: 'user-1', name: 'Test', cpf: '00000000000', phone: null, createdAt: new Date(), updatedAt: new Date() }
 
 const MOCK_PAGINATED: PaginatedServiceListings = {
   data: [MOCK_LISTING],
@@ -65,8 +77,46 @@ function makeRepo(
     findAll: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    updatePhotoUrl: jest.fn(),
     ...overrides,
   } as jest.Mocked<IServicesDirectoryRepository>
+}
+
+function makePersonRepo(
+  overrides: Partial<IPersonRepository> = {},
+): jest.Mocked<IPersonRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByCpf: jest.fn(),
+    findByUserId: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IPersonRepository>
+}
+
+function makeOrgRepo(
+  overrides: Partial<IOrganizationRepository> = {},
+): jest.Mocked<IOrganizationRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByCnpj: jest.fn(),
+    findByPersonId: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    addPerson: jest.fn(),
+    removePerson: jest.fn(),
+    personCount: jest.fn(),
+    hasPerson: jest.fn(),
+    getRole: jest.fn(),
+    setRole: jest.fn(),
+    countByRole: jest.fn(),
+    findMembers: jest.fn(),
+    updatePhotoUrl: jest.fn(),
+    ...overrides,
+  } as jest.Mocked<IOrganizationRepository>
 }
 
 function makeTypeRepo(
@@ -238,5 +288,104 @@ describe('ServicesDirectoryService', () => {
 
       expect(repo.delete).toHaveBeenCalledWith('svc-1')
     })
+  })
+})
+
+// ─── uploadPhoto tests ────────────────────────────────────────────────────────
+
+describe('ServicesDirectoryService.uploadPhoto', () => {
+  const fakeBuffer = Buffer.from('fake-image')
+  const fakeMime = 'image/jpeg'
+
+  it('should throw NOT_FOUND when service does not exist', async () => {
+    const repo = makeRepo({ findById: jest.fn().mockResolvedValueOnce(null) })
+    const typeRepo = makeTypeRepo()
+    const service = new ServicesDirectoryService(repo, typeRepo)
+
+    await expect(service.uploadPhoto('nonexistent', 'user-1', fakeBuffer, fakeMime)).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    })
+  })
+
+  it('should throw INSUFFICIENT_PERMISSION when personal service creator mismatch', async () => {
+    const personalService = { ...MOCK_LISTING, organizationId: null, createdByUserId: 'other-user' }
+    const repo = makeRepo({ findById: jest.fn().mockResolvedValueOnce(personalService) })
+    const typeRepo = makeTypeRepo()
+    const service = new ServicesDirectoryService(repo, typeRepo)
+
+    await expect(service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'INSUFFICIENT_PERMISSION',
+    })
+  })
+
+  it('should upload photo for creator of personal service', async () => {
+    const personalService = { ...MOCK_LISTING, organizationId: null, createdByUserId: 'user-1', photoUrl: null }
+    const updatedService = { ...personalService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+    const repo = makeRepo({
+      findById: jest.fn()
+        .mockResolvedValueOnce(personalService)
+        .mockResolvedValueOnce(updatedService),
+      updatePhotoUrl: jest.fn().mockResolvedValueOnce(undefined),
+    })
+    const typeRepo = makeTypeRepo()
+    const service = new ServicesDirectoryService(repo, typeRepo)
+
+    const result = await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
+
+    expect(result.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
+    expect(repo.updatePhotoUrl).toHaveBeenCalledWith('svc-1', expect.any(String))
+  })
+
+  it('should delete old photo before uploading new one for personal service', async () => {
+    const personalService = { ...MOCK_LISTING, organizationId: null, createdByUserId: 'user-1', photoUrl: 'https://cdn.example.com/service-images/svc-1/old.jpg' }
+    const updatedService = { ...personalService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+    const { deleteFile } = require('../../../shared/utils/storage')
+    const repo = makeRepo({
+      findById: jest.fn()
+        .mockResolvedValueOnce(personalService)
+        .mockResolvedValueOnce(updatedService),
+      updatePhotoUrl: jest.fn().mockResolvedValueOnce(undefined),
+    })
+    const typeRepo = makeTypeRepo()
+    const service = new ServicesDirectoryService(repo, typeRepo)
+
+    await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
+
+    expect(deleteFile).toHaveBeenCalledWith('service-images', expect.any(String))
+  })
+
+  it('should throw INSUFFICIENT_PERMISSION when org service user is MEMBER', async () => {
+    const orgService = { ...MOCK_LISTING, organizationId: 'org-1', createdByUserId: 'user-1' }
+    const repo = makeRepo({ findById: jest.fn().mockResolvedValueOnce(orgService) })
+    const typeRepo = makeTypeRepo()
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('MEMBER') })
+    const service = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await expect(service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'INSUFFICIENT_PERMISSION',
+    })
+  })
+
+  it('should upload photo for OWNER of org service', async () => {
+    const orgService = { ...MOCK_LISTING, organizationId: 'org-1', createdByUserId: 'user-1', photoUrl: null }
+    const updatedService = { ...orgService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+    const repo = makeRepo({
+      findById: jest.fn()
+        .mockResolvedValueOnce(orgService)
+        .mockResolvedValueOnce(updatedService),
+      updatePhotoUrl: jest.fn().mockResolvedValueOnce(undefined),
+    })
+    const typeRepo = makeTypeRepo()
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('OWNER') })
+    const service = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    const result = await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
+
+    expect(result.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
   })
 })

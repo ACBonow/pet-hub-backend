@@ -48,8 +48,20 @@ const MOCK_LISTING = {
   googleMapsUrl: null,
   googleBusinessUrl: null,
   organizationId: null,
+  photoUrl: null,
+  createdByUserId: 'user-1',
   createdAt: new Date('2026-01-01').toISOString(),
   updatedAt: new Date('2026-01-01').toISOString(),
+}
+
+function makeMultipartBody(fileBuffer: Buffer, filename: string, mimeType: string) {
+  const boundary = 'boundary123'
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileBuffer,
+    Buffer.from(`\r\n--${boundary}--`),
+  ])
+  return { payload, headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } }
 }
 
 function makeAuthToken(userId = 'user-1'): string {
@@ -328,6 +340,95 @@ describe('ServicesDirectory routes', () => {
       })
 
       expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── PATCH /api/v1/services-directory/:id/photo ────────────────────────────
+
+  describe('PATCH /api/v1/services-directory/:id/photo', () => {
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/svc-1/photo',
+        payload,
+        headers,
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 400 when content-type is not multipart', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/svc-1/photo',
+        headers: { authorization: `Bearer ${makeAuthToken()}`, 'content-type': 'application/json' },
+        body: {},
+      })
+
+      expect(response.statusCode).toBe(400)
+      const body = response.json()
+      expect(body.error.code).toBe('NO_FILE')
+    })
+
+    it('returns 200 with updated service when upload succeeds', async () => {
+      const updated = { ...MOCK_LISTING, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.uploadPhoto).mockResolvedValueOnce(updated as any)
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/svc-1/photo',
+        payload,
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
+      expect(jest.mocked(service.uploadPhoto)).toHaveBeenCalled()
+    })
+
+    it('returns 403 when user has no permission', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.uploadPhoto).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.')
+      )
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/svc-1/photo',
+        payload,
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json().error.code).toBe('INSUFFICIENT_PERMISSION')
+    })
+
+    it('returns 404 when service not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.uploadPhoto).mockRejectedValueOnce(HttpError.notFound('Serviço'))
+
+      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/nonexistent/photo',
+        payload,
+        headers: { ...headers, authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
     })
   })
 })

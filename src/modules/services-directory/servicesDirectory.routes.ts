@@ -44,4 +44,9 @@ export function registerServicesDirectoryRoutes(
     ...auth,
     handler: controller.delete.bind(controller),
   })
+
+  app.patch('/api/v1/services-directory/:id/photo', {
+    ...auth,
+    handler: controller.uploadPhoto.bind(controller),
+  })
 }

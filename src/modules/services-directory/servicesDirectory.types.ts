@@ -37,6 +37,8 @@ export interface ServiceListing {
   googleMapsUrl: string | null
   googleBusinessUrl: string | null
   organizationId: string | null
+  photoUrl: string | null
+  createdByUserId: string | null
   createdAt: Date
   updatedAt: Date
 }

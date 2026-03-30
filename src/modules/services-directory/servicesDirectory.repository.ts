@@ -50,11 +50,12 @@ export class PrismaServiceTypeRepository implements IServiceTypeRepository {
 // ─── ServicesDirectory Repository ────────────────────────────────────────────
 
 export interface IServicesDirectoryRepository {
-  create(data: CreateServiceListingInput & { serviceTypeId: string }): Promise<ServiceListing>
+  create(data: CreateServiceListingInput & { serviceTypeId: string; createdByUserId?: string }): Promise<ServiceListing>
   findById(id: string): Promise<ServiceListing | null>
   findAll(filter: ListServicesFilter): Promise<PaginatedServiceListings>
   update(id: string, data: UpdateServiceListingInput & { serviceTypeId?: string }): Promise<ServiceListing>
   delete(id: string): Promise<void>
+  updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
 }
 
 const LISTING_INCLUDE = {
@@ -66,7 +67,7 @@ function mapListing(raw: any): ServiceListing {
 }
 
 export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepository {
-  async create(data: CreateServiceListingInput & { serviceTypeId: string }): Promise<ServiceListing> {
+  async create(data: CreateServiceListingInput & { serviceTypeId: string; createdByUserId?: string }): Promise<ServiceListing> {
     const raw = await prisma.serviceListing.create({
       data: {
         name: data.name,
@@ -90,6 +91,7 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
         googleMapsUrl: data.googleMapsUrl ?? null,
         googleBusinessUrl: data.googleBusinessUrl ?? null,
         organizationId: data.organizationId ?? null,
+        createdByUserId: data.createdByUserId ?? null,
       },
       include: LISTING_INCLUDE,
     })
@@ -160,5 +162,9 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
 
   async delete(id: string): Promise<void> {
     await prisma.serviceListing.delete({ where: { id } })
+  }
+
+  async updatePhotoUrl(id: string, photoUrl: string | null): Promise<void> {
+    await prisma.serviceListing.update({ where: { id }, data: { photoUrl } })
   }
 }
