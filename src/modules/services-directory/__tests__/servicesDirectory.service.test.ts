@@ -389,3 +389,128 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
     expect(result.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
   })
 })
+
+// ─── create — org permission tests ───────────────────────────────────────────
+
+describe('ServicesDirectoryService.create — org permission', () => {
+  it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of org', async () => {
+    const typeRepo = makeTypeRepo({ findByCode: jest.fn().mockResolvedValueOnce(MOCK_SERVICE_TYPE) })
+    const repo = makeRepo()
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('MEMBER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await expect(
+      svc.create({ name: 'Test', type: 'CLINIC', organizationId: 'org-1' }, 'user-1'),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    expect(repo.create).not.toHaveBeenCalled()
+  })
+
+  it('should throw INSUFFICIENT_PERMISSION when user is not a member of org', async () => {
+    const typeRepo = makeTypeRepo({ findByCode: jest.fn().mockResolvedValueOnce(MOCK_SERVICE_TYPE) })
+    const repo = makeRepo()
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce(null) })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await expect(
+      svc.create({ name: 'Test', type: 'CLINIC', organizationId: 'org-1' }, 'user-1'),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+  })
+
+  it('should create org service when user is OWNER', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const typeRepo = makeTypeRepo({ findByCode: jest.fn().mockResolvedValueOnce(MOCK_SERVICE_TYPE) })
+    const repo = makeRepo({ create: jest.fn().mockResolvedValueOnce(orgListing) })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('OWNER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    const result = await svc.create({ name: 'Test', type: 'CLINIC', organizationId: 'org-1' }, 'user-1')
+
+    expect(result.organizationId).toBe('org-1')
+    expect(repo.create).toHaveBeenCalled()
+  })
+
+  it('should create org service when user is MANAGER', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const typeRepo = makeTypeRepo({ findByCode: jest.fn().mockResolvedValueOnce(MOCK_SERVICE_TYPE) })
+    const repo = makeRepo({ create: jest.fn().mockResolvedValueOnce(orgListing) })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('MANAGER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    const result = await svc.create({ name: 'Test', type: 'CLINIC', organizationId: 'org-1' }, 'user-1')
+
+    expect(result.organizationId).toBe('org-1')
+  })
+})
+
+// ─── update — org permission tests ───────────────────────────────────────────
+
+describe('ServicesDirectoryService.update — org permission', () => {
+  it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of org service', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const typeRepo = makeTypeRepo()
+    const repo = makeRepo({ findById: jest.fn().mockResolvedValueOnce(orgListing) })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('MEMBER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await expect(
+      svc.update('svc-1', { name: 'Novo' }, 'user-1'),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    expect(repo.update).not.toHaveBeenCalled()
+  })
+
+  it('should update org service when user is OWNER', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const updated = { ...orgListing, name: 'Novo' }
+    const typeRepo = makeTypeRepo()
+    const repo = makeRepo({
+      findById: jest.fn().mockResolvedValueOnce(orgListing),
+      update: jest.fn().mockResolvedValueOnce(updated),
+    })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('OWNER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    const result = await svc.update('svc-1', { name: 'Novo' }, 'user-1')
+
+    expect(result.name).toBe('Novo')
+  })
+})
+
+// ─── delete — org permission tests ───────────────────────────────────────────
+
+describe('ServicesDirectoryService.delete — org permission', () => {
+  it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of org service', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const typeRepo = makeTypeRepo()
+    const repo = makeRepo({ findById: jest.fn().mockResolvedValueOnce(orgListing) })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('MEMBER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await expect(
+      svc.delete('svc-1', 'user-1'),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    expect(repo.delete).not.toHaveBeenCalled()
+  })
+
+  it('should delete org service when user is OWNER', async () => {
+    const orgListing = { ...MOCK_LISTING, organizationId: 'org-1' }
+    const typeRepo = makeTypeRepo()
+    const repo = makeRepo({
+      findById: jest.fn().mockResolvedValueOnce(orgListing),
+      delete: jest.fn().mockResolvedValueOnce(undefined),
+    })
+    const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
+    const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('OWNER') })
+    const svc = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+
+    await svc.delete('svc-1', 'user-1')
+
+    expect(repo.delete).toHaveBeenCalledWith('svc-1')
+  })
+})

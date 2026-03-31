@@ -72,7 +72,7 @@ export class ServicesDirectoryController {
     }
 
     const { id } = request.params
-    const listing = await this.service.update(id, parsed.data)
+    const listing = await this.service.update(id, parsed.data, request.user!.id)
     return reply.status(200).send({ success: true, data: listing })
   }
 
@@ -81,7 +81,7 @@ export class ServicesDirectoryController {
     reply: FastifyReply,
   ) {
     const { id } = request.params
-    await this.service.delete(id)
+    await this.service.delete(id, request.user!.id)
     return reply.status(204).send()
   }
 

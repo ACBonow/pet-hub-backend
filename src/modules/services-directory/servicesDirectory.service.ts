@@ -19,7 +19,7 @@ import type {
   UpdateServiceListingInput,
 } from './servicesDirectory.types'
 
-const ALLOWED_ROLES_FOR_PHOTO = ['OWNER', 'MANAGER'] as const
+const ALLOWED_ORG_ROLES = ['OWNER', 'MANAGER'] as const
 
 export class ServicesDirectoryService {
   constructor(
@@ -38,6 +38,17 @@ export class ServicesDirectoryService {
     if (!serviceType) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Tipo de serviço não encontrado.')
     }
+
+    if (input.organizationId) {
+      const person = this.personRepository ? await this.personRepository.findByUserId(userId ?? '') : null
+      const role = person && this.orgRepository
+        ? await this.orgRepository.getRole(input.organizationId, person.id)
+        : null
+      if (!role || !(ALLOWED_ORG_ROLES as readonly string[]).includes(role)) {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER da organização podem cadastrar serviços.')
+      }
+    }
+
     return this.repository.create({ ...input, serviceTypeId: serviceType.id, createdByUserId: userId })
   }
 
@@ -51,9 +62,19 @@ export class ServicesDirectoryService {
     return listing
   }
 
-  async update(id: string, input: UpdateServiceListingInput): Promise<ServiceListing> {
+  async update(id: string, input: UpdateServiceListingInput, userId?: string): Promise<ServiceListing> {
     const existing = await this.repository.findById(id)
     if (!existing) throw HttpError.notFound('Serviço')
+
+    if (existing.organizationId) {
+      const person = this.personRepository ? await this.personRepository.findByUserId(userId ?? '') : null
+      const role = person && this.orgRepository
+        ? await this.orgRepository.getRole(existing.organizationId, person.id)
+        : null
+      if (!role || !(ALLOWED_ORG_ROLES as readonly string[]).includes(role)) {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER da organização podem editar este serviço.')
+      }
+    }
 
     let serviceTypeId: string | undefined
     if (input.type !== undefined) {
@@ -67,9 +88,20 @@ export class ServicesDirectoryService {
     return this.repository.update(id, { ...input, serviceTypeId })
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const existing = await this.repository.findById(id)
     if (!existing) throw HttpError.notFound('Serviço')
+
+    if (existing.organizationId) {
+      const person = this.personRepository ? await this.personRepository.findByUserId(userId ?? '') : null
+      const role = person && this.orgRepository
+        ? await this.orgRepository.getRole(existing.organizationId, person.id)
+        : null
+      if (!role || !(ALLOWED_ORG_ROLES as readonly string[]).includes(role)) {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER da organização podem excluir este serviço.')
+      }
+    }
+
     await this.repository.delete(id)
   }
 
@@ -85,7 +117,7 @@ export class ServicesDirectoryService {
         ? await this.orgRepository.getRole(service.organizationId, person.id)
         : null
 
-      if (!role || !(ALLOWED_ROLES_FOR_PHOTO as readonly string[]).includes(role)) {
+      if (!role || !(ALLOWED_ORG_ROLES as readonly string[]).includes(role)) {
         throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER da organização podem atualizar a foto do serviço.')
       }
     } else {

@@ -300,6 +300,23 @@ describe('ServicesDirectory routes', () => {
 
       expect(response.statusCode).toBe(401)
     })
+
+    it('returns 403 when service throws INSUFFICIENT_PERMISSION', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.update).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'),
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/services-directory/svc-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { name: 'Novo Nome' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json().error.code).toBe('INSUFFICIENT_PERMISSION')
+    })
   })
 
   // ── DELETE /api/v1/services-directory/:id ─────────────────────────────────
@@ -340,6 +357,22 @@ describe('ServicesDirectory routes', () => {
       })
 
       expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 403 when service throws INSUFFICIENT_PERMISSION', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'),
+      )
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/services-directory/svc-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(response.json().error.code).toBe('INSUFFICIENT_PERMISSION')
     })
   })
 
