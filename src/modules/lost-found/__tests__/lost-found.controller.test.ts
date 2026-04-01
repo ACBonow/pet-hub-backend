@@ -416,6 +416,36 @@ describe('LostFound routes', () => {
 
       expect(response.statusCode).toBe(404)
     })
+
+    it('returns 403 when user does not own the report', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.updateStatus).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { status: 'RESOLVED' },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('passes userId to service.updateStatus', async () => {
+      const updated = { ...MOCK_REPORT, status: 'RESOLVED' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.updateStatus).mockResolvedValueOnce(updated as any)
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+        body: { status: 'RESOLVED' },
+      })
+
+      expect(service.updateStatus).toHaveBeenCalledWith('report-1', 'RESOLVED', 'user-42')
+    })
   })
 
   // ── DELETE /api/v1/lost-found/:id ─────────────────────────────────────────
@@ -456,6 +486,33 @@ describe('LostFound routes', () => {
       })
 
       expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 403 when user does not own the report', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.delete).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('passes userId to service.delete', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockResolvedValueOnce(undefined)
+
+      await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+      })
+
+      expect(service.delete).toHaveBeenCalledWith('report-1', 'user-42')
     })
   })
 

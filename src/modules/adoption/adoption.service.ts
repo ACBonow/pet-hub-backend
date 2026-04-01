@@ -5,6 +5,7 @@
  */
 
 import { HttpError } from '../../shared/errors/HttpError'
+import { AppError } from '../../shared/errors/AppError'
 import type { IAdoptionRepository } from './adoption.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
@@ -117,19 +118,40 @@ export class AdoptionService {
     return listing
   }
 
-  async updateStatus(id: string, status: AdoptionStatus): Promise<AdoptionListingRecord> {
+  private async verifyListingOwnership(listing: AdoptionListingRecord, userId: string): Promise<void> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão para modificar esta listagem.')
+    }
+    if (listing.listerType === 'PERSON') {
+      if (listing.personId !== person.id) {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador da listagem pode modificá-la.')
+      }
+    } else {
+      const role = listing.organizationId
+        ? await this.orgRepository.getRole(listing.organizationId, person.id)
+        : null
+      if (!role || role === 'MEMBER') {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER podem modificar esta listagem.')
+      }
+    }
+  }
+
+  async updateStatus(id: string, status: AdoptionStatus, userId: string): Promise<AdoptionListingRecord> {
     const listing = await this.repository.findById(id)
     if (!listing) {
       throw HttpError.notFound('Listagem de adoção')
     }
+    await this.verifyListingOwnership(listing, userId)
     return this.repository.updateStatus(id, status)
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const listing = await this.repository.findById(id)
     if (!listing) {
       throw HttpError.notFound('Listagem de adoção')
     }
+    await this.verifyListingOwnership(listing, userId)
     await this.repository.delete(id)
   }
 }

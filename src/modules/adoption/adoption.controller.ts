@@ -57,12 +57,14 @@ export class AdoptionController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const listing = await this.service.updateStatus(request.params.id, parsed.data.status)
+    const userId = (request as any).user!.id
+    const listing = await this.service.updateStatus(request.params.id, parsed.data.status, userId)
     return reply.status(200).send({ success: true, data: listing })
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    await this.service.delete(request.params.id)
+    const userId = (request as any).user!.id
+    await this.service.delete(request.params.id, userId)
     return reply.status(204).send()
   }
 }

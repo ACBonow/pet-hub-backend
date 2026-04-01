@@ -16,6 +16,12 @@ import type { PetService } from './pet.service'
 export class PetController {
   constructor(private service: PetService) {}
 
+  async listOrgPets(request: FastifyRequest<{ Params: { orgId: string } }>, reply: FastifyReply) {
+    const userId = (request as any).user!.id
+    const pets = await this.service.findByOrg(request.params.orgId, userId)
+    return reply.status(200).send({ success: true, data: pets })
+  }
+
   async listMyPets(request: FastifyRequest, reply: FastifyReply) {
     const userId = (request as any).user!.id
     const pets = await this.service.findByUser(userId)
@@ -48,12 +54,14 @@ export class PetController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const pet = await this.service.update(request.params.id, parsed.data)
+    const userId = (request as any).user!.id
+    const pet = await this.service.update(request.params.id, parsed.data, userId)
     return reply.status(200).send({ success: true, data: pet })
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    await this.service.delete(request.params.id)
+    const userId = (request as any).user!.id
+    await this.service.delete(request.params.id, userId)
     return reply.status(204).send()
   }
 

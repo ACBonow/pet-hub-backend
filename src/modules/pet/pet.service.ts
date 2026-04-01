@@ -4,6 +4,7 @@
  * @description Business logic for pet management, including tutorship and co-tutor rules.
  */
 
+import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
 import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
 import type { IPetRepository } from './pet.repository'
@@ -64,6 +65,18 @@ export class PetService {
     return this.repository.create(createInput)
   }
 
+  async findByOrg(orgId: string, userId: string): Promise<PetRecord[]> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person) {
+      throw HttpError.notFound('Perfil de pessoa do usuário')
+    }
+    const role = await this.orgRepository.getRole(orgId, person.id)
+    if (!role) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não é membro desta organização.')
+    }
+    return this.repository.findByOrgId(orgId)
+  }
+
   async findByUser(userId: string): Promise<PetRecord[]> {
     const person = await this.personRepository.findByUserId(userId)
     if (!person) {
@@ -80,18 +93,26 @@ export class PetService {
     return pet
   }
 
-  async update(id: string, data: PetUpdateInput): Promise<PetRecord> {
+  async update(id: string, data: PetUpdateInput, userId: string): Promise<PetRecord> {
     const pet = await this.repository.findById(id)
     if (!pet) {
       throw HttpError.notFound('Pet')
     }
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person || pet.activeTutorship?.personTutorId !== person.id) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o tutor primário pode editar o pet.')
+    }
     return this.repository.update(id, data)
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const pet = await this.repository.findById(id)
     if (!pet) {
       throw HttpError.notFound('Pet')
+    }
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person || pet.activeTutorship?.personTutorId !== person.id) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o tutor primário pode excluir o pet.')
     }
     await this.repository.delete(id)
   }

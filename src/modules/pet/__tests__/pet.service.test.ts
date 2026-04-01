@@ -88,6 +88,7 @@ function makePetRepo(overrides: Partial<IPetRepository> = {}): jest.Mocked<IPetR
     create: jest.fn(),
     findById: jest.fn(),
     findByPersonId: jest.fn(),
+    findByOrgId: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     updatePhotoUrl: jest.fn(),
@@ -122,6 +123,7 @@ function makeOrgRepo(overrides: Partial<IOrganizationRepository> = {}): jest.Moc
     addPerson: jest.fn(),
     removePerson: jest.fn(),
     personCount: jest.fn(),
+    getRole: jest.fn(),
     ...overrides,
   } as jest.Mocked<IOrganizationRepository>
 }
@@ -293,18 +295,39 @@ describe('PetService', () => {
     it('should throw NOT_FOUND when pet does not exist', async () => {
       petRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.update('nonexistent', { name: 'Rex II' })).rejects.toMatchObject({
+      await expect(service.update('nonexistent', { name: 'Rex II' }, 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
       })
     })
 
-    it('should update and return pet', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user is not primary tutor', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+
+      await expect(service.update('pet-1', { name: 'Rex II' }, 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.update('pet-1', { name: 'Rex II' }, 'user-x')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should update and return pet when user is primary tutor', async () => {
       const updated = { ...MOCK_PET, name: 'Rex II' }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       petRepo.update.mockResolvedValueOnce(updated)
 
-      const result = await service.update('pet-1', { name: 'Rex II' })
+      const result = await service.update('pet-1', { name: 'Rex II' }, 'user-1')
 
       expect(result.name).toBe('Rex II')
     })
@@ -316,17 +339,28 @@ describe('PetService', () => {
     it('should throw NOT_FOUND when pet does not exist', async () => {
       petRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.delete('nonexistent')).rejects.toMatchObject({
+      await expect(service.delete('nonexistent', 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
       })
     })
 
-    it('should delete pet when found', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user is not primary tutor', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+
+      await expect(service.delete('pet-1', 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should delete pet when user is primary tutor', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       petRepo.delete.mockResolvedValueOnce(undefined)
 
-      await service.delete('pet-1')
+      await service.delete('pet-1', 'user-1')
 
       expect(petRepo.delete).toHaveBeenCalledWith('pet-1')
     })
@@ -534,6 +568,60 @@ describe('PetService', () => {
       await service.removeCoTutor('pet-1', 'co-1')
 
       expect(petRepo.removeCoTutor).toHaveBeenCalledWith('pet-1', 'co-1')
+    })
+  })
+
+  // ── findByOrg ─────────────────────────────────────────────────────────────
+
+  describe('findByOrg', () => {
+    it('should throw NOT_FOUND when user has no person profile', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.findByOrg('org-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not a member of the org', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce(null)
+
+      await expect(service.findByOrg('org-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should return pets when user is a MEMBER', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER' as any)
+      petRepo.findByOrgId.mockResolvedValueOnce([MOCK_PET])
+
+      const result = await service.findByOrg('org-1', 'user-1')
+
+      expect(result).toEqual([MOCK_PET])
+      expect(petRepo.findByOrgId).toHaveBeenCalledWith('org-1')
+    })
+
+    it('should return pets when user is OWNER', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER' as any)
+      petRepo.findByOrgId.mockResolvedValueOnce([MOCK_PET])
+
+      const result = await service.findByOrg('org-1', 'user-1')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('should return empty list when org has no pets', async () => {
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER' as any)
+      petRepo.findByOrgId.mockResolvedValueOnce([])
+
+      const result = await service.findByOrg('org-1', 'user-1')
+
+      expect(result).toEqual([])
     })
   })
 

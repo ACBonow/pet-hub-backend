@@ -97,19 +97,28 @@ export class LostFoundService {
     return report
   }
 
-  async updateStatus(id: string, status: LostFoundStatus): Promise<LostFoundReport> {
+  private async verifyReportOwnership(report: LostFoundReport, userId: string): Promise<void> {
+    const person = await this.personRepository.findByUserId(userId)
+    if (!person || report.reporterId !== person.id) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador do relatório pode modificá-lo.')
+    }
+  }
+
+  async updateStatus(id: string, status: LostFoundStatus, userId: string): Promise<LostFoundReport> {
     const report = await this.repository.findById(id)
     if (!report) {
       throw HttpError.notFound('Relatório de achado/perdido')
     }
+    await this.verifyReportOwnership(report, userId)
     return this.repository.updateStatus(id, status)
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const report = await this.repository.findById(id)
     if (!report) {
       throw HttpError.notFound('Relatório de achado/perdido')
     }
+    await this.verifyReportOwnership(report, userId)
     await this.repository.delete(id)
   }
 

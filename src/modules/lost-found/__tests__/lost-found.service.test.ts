@@ -407,18 +407,39 @@ describe('LostFoundService', () => {
     it('should throw NOT_FOUND when report does not exist', async () => {
       lostFoundRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.updateStatus('nonexistent', 'RESOLVED')).rejects.toMatchObject({
+      await expect(service.updateStatus('nonexistent', 'RESOLVED', 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
       })
     })
 
-    it('should update status and return updated report', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.updateStatus('report-1', 'RESOLVED', 'user-x')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the reporter', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT) // reporterId: 'person-1'
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+
+      await expect(service.updateStatus('report-1', 'RESOLVED', 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should update status when user is the reporter', async () => {
       const updated: LostFoundReport = { ...MOCK_REPORT, status: 'RESOLVED' }
       lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       lostFoundRepo.updateStatus.mockResolvedValueOnce(updated)
 
-      const result = await service.updateStatus('report-1', 'RESOLVED')
+      const result = await service.updateStatus('report-1', 'RESOLVED', 'user-1')
 
       expect(result.status).toBe('RESOLVED')
       expect(lostFoundRepo.updateStatus).toHaveBeenCalledWith('report-1', 'RESOLVED')
@@ -431,17 +452,38 @@ describe('LostFoundService', () => {
     it('should throw NOT_FOUND when report does not exist', async () => {
       lostFoundRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.delete('nonexistent')).rejects.toMatchObject({
+      await expect(service.delete('nonexistent', 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
       })
     })
 
-    it('should delete report when found', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
       lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.delete('report-1', 'user-x')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the reporter', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+
+      await expect(service.delete('report-1', 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should delete report when user is the reporter', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       lostFoundRepo.delete.mockResolvedValueOnce(undefined)
 
-      await service.delete('report-1')
+      await service.delete('report-1', 'user-1')
 
       expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
     })

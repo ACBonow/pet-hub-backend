@@ -307,6 +307,36 @@ describe('Adoption routes', () => {
 
       expect(response.statusCode).toBe(401)
     })
+
+    it('returns 403 when user does not own the listing', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.updateStatus).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/adoptions/listing-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { status: 'RESERVED' },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('passes userId to service.updateStatus', async () => {
+      const updated = { ...MOCK_LISTING, status: 'RESERVED' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.updateStatus).mockResolvedValueOnce(updated as any)
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/adoptions/listing-1/status',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+        body: { status: 'RESERVED' },
+      })
+
+      expect(service.updateStatus).toHaveBeenCalledWith('listing-1', 'RESERVED', 'user-42')
+    })
   })
 
   // ── DELETE /api/v1/adoptions/:id ──────────────────────────────────────────
@@ -347,6 +377,33 @@ describe('Adoption routes', () => {
       })
 
       expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 403 when user does not own the listing', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.delete).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/adoptions/listing-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('passes userId to service.delete', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockResolvedValueOnce(undefined)
+
+      await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/adoptions/listing-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+      })
+
+      expect(service.delete).toHaveBeenCalledWith('listing-1', 'user-42')
     })
   })
 })

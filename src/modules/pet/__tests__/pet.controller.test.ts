@@ -333,6 +333,38 @@ describe('Pet routes', () => {
       await app.close()
     })
 
+    it('returns 403 when user is not primary tutor', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.update).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/pets/pet-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { name: 'Rex II' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('passes userId to service.update', async () => {
+      const { app, service } = await buildTestApp()
+      const updated = { ...MOCK_PET, name: 'Rex II' }
+      jest.mocked(service.update).mockResolvedValueOnce(updated as any)
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/pets/pet-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+        payload: { name: 'Rex II' },
+      })
+
+      expect(service.update).toHaveBeenCalledWith('pet-1', expect.anything(), 'user-42')
+      await app.close()
+    })
+
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
 
@@ -376,6 +408,35 @@ describe('Pet routes', () => {
       })
 
       expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 403 when user is not primary tutor', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.delete).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/pets/pet-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('passes userId to service.delete', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockResolvedValueOnce(undefined)
+
+      await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/pets/pet-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+      })
+
+      expect(service.delete).toHaveBeenCalledWith('pet-1', 'user-42')
       await app.close()
     })
 
@@ -616,6 +677,79 @@ describe('Pet routes', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/pets/pet-1/co-tutors/co-1',
+      })
+
+      expect(response.statusCode).toBe(401)
+      await app.close()
+    })
+  })
+
+  // ── GET /api/v1/organizations/:orgId/pets ────────────────────────────────
+
+  describe('GET /api/v1/organizations/:orgId/pets', () => {
+    it('returns 200 with list of org pets', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findByOrg).mockResolvedValueOnce([MOCK_PET] as any)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(Array.isArray(body.data)).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].id).toBe('pet-1')
+
+      await app.close()
+    })
+
+    it('returns 200 with empty array when org has no pets', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findByOrg).mockResolvedValueOnce([])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.data).toEqual([])
+
+      await app.close()
+    })
+
+    it('returns 403 when user is not a member of the org', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.findByOrg).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não é membro desta organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/pets',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      const body = response.json()
+      expect(body.error.code).toBe('INSUFFICIENT_PERMISSION')
+
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/organizations/org-1/pets',
       })
 
       expect(response.statusCode).toBe(401)
