@@ -312,6 +312,39 @@ describe('Organization routes', () => {
       await app.close()
     })
 
+    it('returns 403 when user is not OWNER', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.update).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode editar a organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-2')}` },
+        payload: { name: 'Novo Nome' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('passes userId to service.update', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.update).mockResolvedValueOnce(MOCK_ORG as any)
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-1')}` },
+        payload: { name: 'ONG Atualizada' },
+      })
+
+      expect(service.update).toHaveBeenCalledWith('org-1', expect.any(Object), 'user-1')
+      await app.close()
+    })
+
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
 
@@ -355,6 +388,37 @@ describe('Organization routes', () => {
       })
 
       expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 403 when user is not OWNER', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.delete).mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode excluir a organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-2')}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('passes userId to service.delete', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.delete).mockResolvedValueOnce(undefined)
+
+      await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-1')}` },
+      })
+
+      expect(service.delete).toHaveBeenCalledWith('org-1', 'user-1')
       await app.close()
     })
 

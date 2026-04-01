@@ -84,19 +84,33 @@ export class OrganizationService {
     return org
   }
 
-  async update(id: string, data: OrganizationUpdateInput): Promise<OrganizationRecord> {
+  async update(id: string, data: OrganizationUpdateInput, userId: string): Promise<OrganizationRecord> {
     const org = await this.repository.findById(id)
     if (!org) {
       throw HttpError.notFound('Organização')
     }
+
+    const person = await this.personRepository.findByUserId(userId)
+    const role = person ? await this.repository.getRole(id, person.id) : null
+    if (role !== 'OWNER') {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode editar a organização.')
+    }
+
     return this.repository.update(id, data)
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const org = await this.repository.findById(id)
     if (!org) {
       throw HttpError.notFound('Organização')
     }
+
+    const person = await this.personRepository.findByUserId(userId)
+    const role = person ? await this.repository.getRole(id, person.id) : null
+    if (role !== 'OWNER') {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode excluir a organização.')
+    }
+
     await this.repository.delete(id)
   }
 

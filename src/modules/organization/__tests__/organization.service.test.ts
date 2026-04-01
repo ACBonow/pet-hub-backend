@@ -248,16 +248,37 @@ describe('OrganizationService', () => {
       orgRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.update('unknown', { name: 'Novo Nome' }),
+        service.update('unknown', { name: 'Novo Nome' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
-    it('should update and return updated organization', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user is not OWNER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(
+        service.update('org-1', { name: 'Novo Nome' }, 'user-2'),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(
+        service.update('org-1', { name: 'Novo Nome' }, 'user-no-person'),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
+    })
+
+    it('should update and return updated organization when user is OWNER', async () => {
       const updated = { ...MOCK_ORG, name: 'Novo Nome' }
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
       orgRepo.update.mockResolvedValueOnce(updated)
 
-      const result = await service.update('org-1', { name: 'Novo Nome' })
+      const result = await service.update('org-1', { name: 'Novo Nome' }, 'user-1')
 
       expect(result.name).toBe('Novo Nome')
       expect(orgRepo.update).toHaveBeenCalledWith('org-1', { name: 'Novo Nome' })
@@ -270,17 +291,40 @@ describe('OrganizationService', () => {
     it('should throw NOT_FOUND when organization does not exist', async () => {
       orgRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.delete('unknown')).rejects.toMatchObject({
+      await expect(service.delete('unknown', 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
       })
     })
 
-    it('should delete organization when found', async () => {
+    it('should throw INSUFFICIENT_PERMISSION when user is not OWNER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+
+      await expect(service.delete('org-1', 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.delete('org-1', 'user-no-person')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should delete organization when user is OWNER', async () => {
+      orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
       orgRepo.delete.mockResolvedValueOnce(undefined)
 
-      await service.delete('org-1')
+      await service.delete('org-1', 'user-1')
 
       expect(orgRepo.delete).toHaveBeenCalledWith('org-1')
     })

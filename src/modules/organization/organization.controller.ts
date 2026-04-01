@@ -46,12 +46,12 @@ export class OrganizationController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const org = await this.service.update(request.params.id, parsed.data)
+    const org = await this.service.update(request.params.id, parsed.data, request.user!.id)
     return reply.status(200).send({ success: true, data: org })
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    await this.service.delete(request.params.id)
+    await this.service.delete(request.params.id, request.user!.id)
     return reply.status(204).send()
   }
 
