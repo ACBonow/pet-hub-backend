@@ -107,6 +107,16 @@ export class PetHealthController {
     return reply.status(201).send({ success: true, data: exam })
   }
 
+  async deleteVaccination(
+    request: FastifyRequest<{ Params: { petId: string; vaccinationId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { petId, vaccinationId } = request.params
+    const userId = request.user!.id
+    await this.service.deleteVaccination(petId, vaccinationId, userId)
+    return reply.status(204).send()
+  }
+
   async deleteExamFile(
     request: FastifyRequest<{ Params: { petId: string; examId: string } }>,
     reply: FastifyReply,

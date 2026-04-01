@@ -93,6 +93,8 @@ function makeHealthRepo(overrides: Partial<IPetHealthRepository> = {}): jest.Moc
   return {
     addVaccination: jest.fn(),
     getVaccinationCard: jest.fn(),
+    findVaccination: jest.fn(),
+    deleteVaccination: jest.fn(),
     createExamFile: jest.fn(),
     listExamFiles: jest.fn(),
     findExamFile: jest.fn(),
@@ -212,6 +214,51 @@ describe('PetHealthService', () => {
         statusCode: 403,
         code: 'FORBIDDEN',
       })
+    })
+  })
+
+  // ── deleteVaccination ─────────────────────────────────────────────────────
+
+  describe('deleteVaccination', () => {
+    it('should throw NOT_FOUND when pet does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.deleteVaccination('nonexistent', 'vacc-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw FORBIDDEN when user has no tutorship', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'other-person' })
+
+      await expect(service.deleteVaccination('pet-1', 'vacc-1', 'user-99')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      })
+    })
+
+    it('should throw NOT_FOUND when vaccination does not exist', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      healthRepo.findVaccination.mockResolvedValueOnce(null)
+
+      await expect(service.deleteVaccination('pet-1', 'nonexistent', 'user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should delete vaccination when found and user has access', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      healthRepo.findVaccination.mockResolvedValueOnce(MOCK_VACCINATION)
+      healthRepo.deleteVaccination.mockResolvedValueOnce(undefined)
+
+      await service.deleteVaccination('pet-1', 'vacc-1', 'user-1')
+
+      expect(healthRepo.deleteVaccination).toHaveBeenCalledWith('vacc-1')
     })
   })
 

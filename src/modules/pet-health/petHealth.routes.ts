@@ -23,6 +23,11 @@ export function registerPetHealthRoutes(app: FastifyInstance, service: PetHealth
     { ...auth, handler: controller.addVaccination.bind(controller) },
   )
 
+  app.delete(
+    '/api/v1/pet-health/:petId/vaccinations/:vaccinationId',
+    { ...auth, handler: controller.deleteVaccination.bind(controller) },
+  )
+
   app.get(
     '/api/v1/pet-health/:petId/exams',
     { ...auth, handler: controller.listExamFiles.bind(controller) },

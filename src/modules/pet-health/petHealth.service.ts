@@ -57,6 +57,15 @@ export class PetHealthService {
     return this.repository.getVaccinationCard(petId)
   }
 
+  async deleteVaccination(petId: string, vaccinationId: string, userId: string): Promise<void> {
+    await this.checkTutorAccess(petId, userId)
+
+    const vaccination = await this.repository.findVaccination(vaccinationId)
+    if (!vaccination) throw HttpError.notFound('Vacina')
+
+    await this.repository.deleteVaccination(vaccinationId)
+  }
+
   async uploadExamFile(
     petId: string,
     userId: string,

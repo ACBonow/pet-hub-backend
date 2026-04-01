@@ -15,6 +15,8 @@ import type {
 export interface IPetHealthRepository {
   addVaccination(data: VaccinationCreateInput): Promise<VaccinationRecord>
   getVaccinationCard(petId: string): Promise<VaccinationRecord[]>
+  findVaccination(vaccinationId: string): Promise<VaccinationRecord | null>
+  deleteVaccination(vaccinationId: string): Promise<void>
   createExamFile(data: ExamFileCreateInput): Promise<ExamFileRecord>
   listExamFiles(petId: string): Promise<ExamFileRecord[]>
   findExamFile(examId: string): Promise<ExamFileRecord | null>
@@ -44,6 +46,14 @@ export class PrismaPetHealthRepository implements IPetHealthRepository {
       where: { petId },
       orderBy: { applicationDate: 'desc' },
     })
+  }
+
+  async findVaccination(vaccinationId: string): Promise<VaccinationRecord | null> {
+    return prisma.vaccination.findUnique({ where: { id: vaccinationId } })
+  }
+
+  async deleteVaccination(vaccinationId: string): Promise<void> {
+    await prisma.vaccination.delete({ where: { id: vaccinationId } })
   }
 
   async createExamFile(data: ExamFileCreateInput): Promise<ExamFileRecord> {

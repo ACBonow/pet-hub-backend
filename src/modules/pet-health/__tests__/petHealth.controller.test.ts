@@ -16,6 +16,7 @@ const MockedPetHealthService = PetHealthService as jest.MockedClass<typeof PetHe
 
 const PET_ID = 'pet-uuid-0001'
 const EXAM_ID = 'exam-uuid-0001'
+const VACC_ID = 'vacc-uuid-0001'
 const USER_ID = 'user-uuid-0001'
 
 const MOCK_VACCINATION = {
@@ -291,6 +292,60 @@ describe('PetHealth routes', () => {
       })
 
       expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── DELETE /api/v1/pet-health/:petId/vaccinations/:vaccinationId ─────────
+
+  describe('DELETE /api/v1/pet-health/:petId/vaccinations/:vaccinationId', () => {
+    it('returns 204 on successful deletion', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.deleteVaccination).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/vaccinations/${VACC_ID}`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(204)
+    })
+
+    it('returns 404 when vaccination not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.deleteVaccination).mockRejectedValueOnce(HttpError.notFound('Vacina'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/vaccinations/${VACC_ID}`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/vaccinations/${VACC_ID}`,
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 403 when user has no tutorship', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.deleteVaccination).mockRejectedValueOnce(HttpError.forbidden())
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/vaccinations/${VACC_ID}`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
     })
   })
 
