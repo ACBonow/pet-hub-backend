@@ -50,6 +50,7 @@ const MOCK_CO_TUTOR = {
   tutorType: 'PERSON',
   personTutorId: 'person-2',
   orgTutorId: null,
+  name: 'Maria Santos',
   assignedAt: new Date('2026-01-01').toISOString(),
 }
 

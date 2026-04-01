@@ -501,6 +501,7 @@ describe('PetService', () => {
         tutorType: 'PERSON',
         personTutorId: 'person-2',
         orgTutorId: null,
+        name: 'Maria Santos',
         assignedAt: new Date(),
       }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
@@ -510,6 +511,7 @@ describe('PetService', () => {
       const result = await service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '07493124050' })
 
       expect(result).toEqual(coTutor)
+      expect(result.name).toBe('Maria Santos')
       expect(personRepo.findByCpf).toHaveBeenCalledWith('07493124050')
       expect(petRepo.addCoTutor).toHaveBeenCalledWith('pet-1', expect.objectContaining({
         personTutorId: 'person-2',

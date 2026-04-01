@@ -20,6 +20,7 @@ export interface IPetRepository {
   create(data: PetCreateInput): Promise<PetRecord>
   findById(id: string): Promise<PetRecord | null>
   findByPersonId(personId: string): Promise<PetRecord[]>
+  findByOrgId(orgId: string): Promise<PetRecord[]>
   update(id: string, data: PetUpdateInput): Promise<PetRecord>
   delete(id: string): Promise<void>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
@@ -30,9 +31,14 @@ export interface IPetRepository {
   removeCoTutor(petId: string, coTutorId: string): Promise<void>
 }
 
+const coTutorInclude = {
+  personTutor: { select: { name: true } },
+  orgTutor: { select: { name: true } },
+}
+
 const tutorshipInclude = {
   tutorships: { where: { active: true }, take: 1 },
-  coTutors: true,
+  coTutors: { include: coTutorInclude },
 }
 
 function mapTutorship(t: any): TutorshipRecord {
@@ -52,12 +58,14 @@ function mapTutorship(t: any): TutorshipRecord {
 }
 
 function mapCoTutor(c: any): CoTutorRecord {
+  const name: string = c.personTutor?.name ?? c.orgTutor?.name ?? ''
   return {
     id: c.id,
     petId: c.petId,
     tutorType: c.tutorType as 'PERSON' | 'ORGANIZATION',
     personTutorId: c.personTutorId,
     orgTutorId: c.orgTutorId,
+    name,
     assignedAt: c.assignedAt,
   }
 }
@@ -122,6 +130,16 @@ export class PrismaPetRepository implements IPetRepository {
     const pets = await prisma.pet.findMany({
       where: {
         tutorships: { some: { personTutorId: personId, active: true } },
+      },
+      include: tutorshipInclude,
+    })
+    return pets.map(mapPet)
+  }
+
+  async findByOrgId(orgId: string): Promise<PetRecord[]> {
+    const pets = await prisma.pet.findMany({
+      where: {
+        tutorships: { some: { orgTutorId: orgId, active: true } },
       },
       include: tutorshipInclude,
     })
@@ -200,6 +218,7 @@ export class PrismaPetRepository implements IPetRepository {
         personTutorId: data.personTutorId ?? null,
         orgTutorId: data.orgTutorId ?? null,
       },
+      include: coTutorInclude,
     })
     return mapCoTutor(coTutor)
   }

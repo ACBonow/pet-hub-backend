@@ -28,6 +28,7 @@ export interface CoTutorRecord {
   tutorType: TutorType
   personTutorId: string | null
   orgTutorId: string | null
+  name: string
   assignedAt: Date
 }
 
