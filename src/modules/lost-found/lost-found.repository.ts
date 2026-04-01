@@ -97,6 +97,7 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
     const where: Record<string, unknown> = {}
     if (filters.type) where['type'] = filters.type
     if (filters.status) where['status'] = filters.status
+    if (filters.organizationId) where['organizationId'] = filters.organizationId
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [rows, total] = await prisma.$transaction([

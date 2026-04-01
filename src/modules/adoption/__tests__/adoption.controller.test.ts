@@ -216,6 +216,19 @@ describe('Adoption routes', () => {
 
       expect(response.statusCode).toBe(400)
     })
+
+    it('filters by organizationId when provided', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/adoptions?organizationId=${VALID_ORG_UUID}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(service.findAll).toHaveBeenCalledWith(expect.objectContaining({ organizationId: VALID_ORG_UUID }))
+    })
   })
 
   // ── GET /api/v1/adoptions/:id ─────────────────────────────────────────────

@@ -287,6 +287,20 @@ describe('LostFound routes', () => {
       expect(response.statusCode).toBe(400)
     })
 
+    it('filters by organizationId when provided', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+      const VALID_ORG_UUID = 'c1d2e3f4-a5b6-7890-abcd-ef1234567892'
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/lost-found?organizationId=${VALID_ORG_UUID}`,
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(service.findAll).toHaveBeenCalledWith(expect.objectContaining({ organizationId: VALID_ORG_UUID }))
+    })
+
     it('returns reports with organization data when created by org', async () => {
       const reportWithOrg = {
         ...MOCK_REPORT,

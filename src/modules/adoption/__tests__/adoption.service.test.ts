@@ -268,6 +268,14 @@ describe('AdoptionService', () => {
       expect(result.data).toHaveLength(1)
       expect(adoptionRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20 }))
     })
+
+    it('should pass organizationId filter to repository', async () => {
+      adoptionRepo.findAll.mockResolvedValueOnce({ listings: [MOCK_LISTING], total: 1 })
+
+      await service.findAll({ organizationId: 'org-1' })
+
+      expect(adoptionRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org-1' }))
+    })
   })
 
   // ── findById ──────────────────────────────────────────────────────────────

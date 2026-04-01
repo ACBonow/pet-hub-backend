@@ -57,6 +57,7 @@ export const UpdateServiceListingSchema = z.object({
 export const ListServicesQuerySchema = z.object({
   type: z.string().optional(),
   name: z.string().optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })

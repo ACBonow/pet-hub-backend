@@ -76,7 +76,9 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
   async findAll(filters: AdoptionListFilters): Promise<{ listings: AdoptionListingRecord[]; total: number }> {
     const page = filters.page ?? 1
     const pageSize = filters.pageSize ?? 20
-    const where = filters.status ? { status: filters.status as any } : {}
+    const where: Record<string, unknown> = {}
+    if (filters.status) where.status = filters.status
+    if (filters.organizationId) where.organizationId = filters.organizationId
 
     const [rows, total] = await prisma.$transaction([
       prisma.adoptionListing.findMany({

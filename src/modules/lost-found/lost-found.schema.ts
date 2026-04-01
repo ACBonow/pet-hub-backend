@@ -40,6 +40,7 @@ export const UpdateLostFoundStatusSchema = z.object({
 export const LostFoundListQuerySchema = z.object({
   type: LostFoundTypeEnum.optional(),
   status: LostFoundStatusEnum.optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 })

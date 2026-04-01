@@ -211,6 +211,14 @@ describe('ServicesDirectoryService', () => {
         expect.objectContaining({ name: 'VetCare' }),
       )
     })
+
+    it('should pass organizationId filter to repository', async () => {
+      repo.findAll.mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+
+      await service.findAll({ organizationId: 'org-1' })
+
+      expect(repo.findAll).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org-1' }))
+    })
   })
 
   // ── findById ──────────────────────────────────────────────────────────────

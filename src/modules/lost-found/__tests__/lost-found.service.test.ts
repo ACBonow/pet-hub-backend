@@ -370,6 +370,14 @@ describe('LostFoundService', () => {
       expect(result.pageSize).toBe(20)
       expect(lostFoundRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20 }))
     })
+
+    it('should pass organizationId filter to repository', async () => {
+      lostFoundRepo.findAll.mockResolvedValueOnce({ reports: [], total: 0 })
+
+      await service.findAll({ organizationId: 'org-1' })
+
+      expect(lostFoundRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org-1' }))
+    })
   })
 
   // ── findById ──────────────────────────────────────────────────────────────

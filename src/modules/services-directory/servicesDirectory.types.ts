@@ -94,6 +94,7 @@ export interface UpdateServiceListingInput {
 export interface ListServicesFilter {
   type?: string
   name?: string
+  organizationId?: string
   page?: number
   pageSize?: number
 }

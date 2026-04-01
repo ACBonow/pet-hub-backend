@@ -57,6 +57,7 @@ export interface AdoptionUpdateStatusInput {
 
 export interface AdoptionListFilters {
   status?: AdoptionStatus
+  organizationId?: string
   page?: number
   pageSize?: number
 }

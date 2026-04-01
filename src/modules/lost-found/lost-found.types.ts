@@ -62,6 +62,7 @@ export interface LostFoundUpdateStatusInput {
 export interface LostFoundListFilters {
   type?: LostFoundType
   status?: LostFoundStatus
+  organizationId?: string
   page?: number
   pageSize?: number
 }

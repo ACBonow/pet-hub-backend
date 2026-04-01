@@ -114,6 +114,7 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
     const where: Record<string, unknown> = {}
     if (filter.type) where.serviceType = { code: filter.type }
     if (filter.name) where.name = { contains: filter.name, mode: 'insensitive' }
+    if (filter.organizationId) where.organizationId = filter.organizationId
 
     const [data, total] = await Promise.all([
       prisma.serviceListing.findMany({

@@ -32,6 +32,7 @@ export const UpdateAdoptionStatusSchema = z.object({
 
 export const AdoptionListQuerySchema = z.object({
   status: AdoptionStatusEnum.optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 })
