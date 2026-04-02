@@ -12,6 +12,7 @@ import {
   UpdateOrganizationSchema,
 } from './organization.schema'
 import type { OrganizationService } from './organization.service'
+import { resolveActorContext } from '../../shared/utils/resolve-actor-context'
 
 export class OrganizationController {
   constructor(private service: OrganizationService) {}
@@ -39,6 +40,8 @@ export class OrganizationController {
   }
 
   async update(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    await resolveActorContext(request.user!.id, request.params.id)
+
     const parsed = UpdateOrganizationSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send({
@@ -51,6 +54,7 @@ export class OrganizationController {
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    await resolveActorContext(request.user!.id, request.params.id)
     await this.service.delete(request.params.id, request.user!.id)
     return reply.status(204).send()
   }

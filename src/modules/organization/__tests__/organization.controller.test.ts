@@ -7,9 +7,14 @@
 import jwt from 'jsonwebtoken'
 import { buildApp } from '../../../app'
 import { OrganizationService } from '../organization.service'
+import { AppError } from '../../../shared/errors/AppError'
+import { resolveActorContext } from '../../../shared/utils/resolve-actor-context'
 
 jest.mock('../organization.service')
+jest.mock('../../../shared/utils/resolve-actor-context')
+
 const MockedOrgService = OrganizationService as jest.MockedClass<typeof OrganizationService>
+const mockResolveActorContext = jest.mocked(resolveActorContext)
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -312,9 +317,8 @@ describe('Organization routes', () => {
       await app.close()
     })
 
-    it('returns 403 when user is not OWNER', async () => {
+    it('returns 403 when user is not OWNER (service)', async () => {
       const { app, service } = await buildTestApp()
-      const { AppError } = await import('../../../shared/errors/AppError')
       jest.mocked(service.update).mockRejectedValueOnce(
         new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode editar a organização.'),
       )
@@ -327,6 +331,24 @@ describe('Organization routes', () => {
       })
 
       expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('returns 403 when resolveActorContext rejects (not a member)', async () => {
+      const { app, service } = await buildTestApp()
+      mockResolveActorContext.mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para realizar esta ação na organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-outsider')}` },
+        payload: { name: 'Novo Nome' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(service.update).not.toHaveBeenCalled()
       await app.close()
     })
 
@@ -391,9 +413,8 @@ describe('Organization routes', () => {
       await app.close()
     })
 
-    it('returns 403 when user is not OWNER', async () => {
+    it('returns 403 when user is not OWNER (service)', async () => {
       const { app, service } = await buildTestApp()
-      const { AppError } = await import('../../../shared/errors/AppError')
       jest.mocked(service.delete).mockRejectedValueOnce(
         new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode excluir a organização.'),
       )
@@ -405,6 +426,23 @@ describe('Organization routes', () => {
       })
 
       expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
+    it('returns 403 when resolveActorContext rejects (not a member)', async () => {
+      const { app, service } = await buildTestApp()
+      mockResolveActorContext.mockRejectedValueOnce(
+        new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para realizar esta ação na organização.'),
+      )
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-outsider')}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      expect(service.delete).not.toHaveBeenCalled()
       await app.close()
     })
 
