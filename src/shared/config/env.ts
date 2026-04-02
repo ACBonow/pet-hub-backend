@@ -23,7 +23,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
-  CORS_ORIGIN: z.string().default('*'),
+  CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN é obrigatória.'),
 
   RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória.'),
   EMAIL_FROM: z.string().email('EMAIL_FROM deve ser um e-mail válido.').default('noreply@tche-pethub.com'),

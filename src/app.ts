@@ -6,6 +6,7 @@
 
 import Fastify, { FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
+import { env } from './shared/config/env'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
@@ -26,7 +27,7 @@ export function buildApp(): FastifyInstance {
 
   // Plugins
   app.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? '*',
+    origin: env.CORS_ORIGIN,
   })
 
   app.register(helmet)
