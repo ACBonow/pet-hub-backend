@@ -8,16 +8,16 @@ import { z } from 'zod'
 import { sanitizeCpf } from '../../shared/validators/cpf.validator'
 
 export const RegisterSchema = z.object({
-  email: z.string().email('E-mail inválido.'),
-  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.'),
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.'),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.'),
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.').max(128, 'A senha deve ter no máximo 128 caracteres.'),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.').max(100, 'Nome deve ter no máximo 100 caracteres.'),
   cpf: z.string().min(1, 'CPF é obrigatório.').transform(sanitizeCpf),
-  phone: z.string().optional(),
+  phone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').optional(),
 })
 
 export const LoginSchema = z.object({
-  email: z.string().email('E-mail inválido.'),
-  password: z.string().min(1, 'Senha é obrigatória.'),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.'),
+  password: z.string().min(1, 'Senha é obrigatória.').max(128, 'A senha deve ter no máximo 128 caracteres.'),
 })
 
 export const RefreshSchema = z.object({
@@ -29,16 +29,16 @@ export const VerifyEmailSchema = z.object({
 })
 
 export const ResendVerificationSchema = z.object({
-  email: z.string().email('E-mail inválido.'),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.'),
 })
 
 export const ForgotPasswordSchema = z.object({
-  email: z.string().email('E-mail inválido.'),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.'),
 })
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1, 'Token é obrigatório.'),
-  newPassword: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.'),
+  newPassword: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres.').max(128, 'A senha deve ter no máximo 128 caracteres.'),
 })
 
 export type RegisterBody = z.infer<typeof RegisterSchema>

@@ -9,40 +9,40 @@ import { sanitizeCnpj } from '../../shared/validators/cnpj.validator'
 import { sanitizeCpf } from '../../shared/validators/cpf.validator'
 
 export const CreateOrganizationSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.'),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.').max(100, 'Nome deve ter no máximo 100 caracteres.'),
   type: z.enum(['COMPANY', 'NGO'], { message: 'Tipo deve ser COMPANY ou NGO.' }),
   cnpj: z
     .string()
     .nullable()
     .optional()
     .transform(v => (v != null ? sanitizeCnpj(v) : v)),
-  description: z.string().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  email: z.string().email('E-mail inválido.').nullable().optional(),
-  website: z.string().nullable().optional(),
-  instagram: z.string().nullable().optional(),
-  addressStreet: z.string().nullable().optional(),
-  addressNeighborhood: z.string().nullable().optional(),
-  addressNumber: z.string().nullable().optional(),
-  addressCep: z.string().nullable().optional(),
-  addressCity: z.string().nullable().optional(),
-  addressState: z.string().nullable().optional(),
+  description: z.string().max(2000, 'Descrição deve ter no máximo 2000 caracteres.').nullable().optional(),
+  phone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').nullable().optional(),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.').nullable().optional(),
+  website: z.string().max(500, 'Website deve ter no máximo 500 caracteres.').nullable().optional(),
+  instagram: z.string().max(100, 'Instagram deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressStreet: z.string().max(300, 'Endereço deve ter no máximo 300 caracteres.').nullable().optional(),
+  addressNeighborhood: z.string().max(100, 'Bairro deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressNumber: z.string().max(20, 'Número deve ter no máximo 20 caracteres.').nullable().optional(),
+  addressCep: z.string().max(10, 'CEP deve ter no máximo 10 caracteres.').nullable().optional(),
+  addressCity: z.string().max(100, 'Cidade deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressState: z.string().max(2, 'Estado deve ter no máximo 2 caracteres.').nullable().optional(),
   responsiblePersonId: z.string().uuid('ID da pessoa responsável inválido.').nullable().optional(),
 })
 
 export const UpdateOrganizationSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.').optional(),
-  description: z.string().nullable().optional(),
-  phone: z.string().nullable().optional(),
-  email: z.string().email('E-mail inválido.').nullable().optional(),
-  website: z.string().nullable().optional(),
-  instagram: z.string().nullable().optional(),
-  addressStreet: z.string().nullable().optional(),
-  addressNeighborhood: z.string().nullable().optional(),
-  addressNumber: z.string().nullable().optional(),
-  addressCep: z.string().nullable().optional(),
-  addressCity: z.string().nullable().optional(),
-  addressState: z.string().nullable().optional(),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.').max(100, 'Nome deve ter no máximo 100 caracteres.').optional(),
+  description: z.string().max(2000, 'Descrição deve ter no máximo 2000 caracteres.').nullable().optional(),
+  phone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').nullable().optional(),
+  email: z.string().email('E-mail inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.').nullable().optional(),
+  website: z.string().max(500, 'Website deve ter no máximo 500 caracteres.').nullable().optional(),
+  instagram: z.string().max(100, 'Instagram deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressStreet: z.string().max(300, 'Endereço deve ter no máximo 300 caracteres.').nullable().optional(),
+  addressNeighborhood: z.string().max(100, 'Bairro deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressNumber: z.string().max(20, 'Número deve ter no máximo 20 caracteres.').nullable().optional(),
+  addressCep: z.string().max(10, 'CEP deve ter no máximo 10 caracteres.').nullable().optional(),
+  addressCity: z.string().max(100, 'Cidade deve ter no máximo 100 caracteres.').nullable().optional(),
+  addressState: z.string().max(2, 'Estado deve ter no máximo 2 caracteres.').nullable().optional(),
 })
 
 export const AddMemberSchema = z.object({

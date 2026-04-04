@@ -15,26 +15,26 @@ const TutorshipTypeEnum = z.enum(['OWNER', 'TUTOR', 'TEMPORARY_HOME'], {
 })
 
 export const CreatePetSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório.'),
-  species: z.string().min(1, 'Espécie é obrigatória.'),
-  breed: z.string().optional(),
-  gender: z.string().optional(),
+  name: z.string().min(1, 'Nome é obrigatório.').max(100, 'Nome deve ter no máximo 100 caracteres.'),
+  species: z.string().min(1, 'Espécie é obrigatória.').max(100, 'Espécie deve ter no máximo 100 caracteres.'),
+  breed: z.string().max(100, 'Raça deve ter no máximo 100 caracteres.').optional(),
+  gender: z.string().max(20, 'Gênero deve ter no máximo 20 caracteres.').optional(),
   castrated: z.boolean().optional(),
   birthDate: z.coerce.date().optional(),
-  microchip: z.string().optional(),
-  notes: z.string().optional(),
+  microchip: z.string().max(50, 'Microchip deve ter no máximo 50 caracteres.').optional(),
+  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').optional(),
   tutorshipType: TutorshipTypeEnum.default('OWNER'),
 })
 
 export const UpdatePetSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório.').optional(),
-  species: z.string().min(1, 'Espécie é obrigatória.').optional(),
-  breed: z.string().nullable().optional(),
-  gender: z.string().nullable().optional(),
+  name: z.string().min(1, 'Nome é obrigatório.').max(100, 'Nome deve ter no máximo 100 caracteres.').optional(),
+  species: z.string().min(1, 'Espécie é obrigatória.').max(100, 'Espécie deve ter no máximo 100 caracteres.').optional(),
+  breed: z.string().max(100, 'Raça deve ter no máximo 100 caracteres.').nullable().optional(),
+  gender: z.string().max(20, 'Gênero deve ter no máximo 20 caracteres.').nullable().optional(),
   castrated: z.boolean().nullable().optional(),
   birthDate: z.coerce.date().nullable().optional(),
-  microchip: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  microchip: z.string().max(50, 'Microchip deve ter no máximo 50 caracteres.').nullable().optional(),
+  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').nullable().optional(),
 })
 
 export const TransferTutorshipSchema = z
@@ -43,7 +43,7 @@ export const TransferTutorshipSchema = z
     personCpf: z.string().optional(),
     orgTutorId: z.string().uuid('ID da organização tutora inválido.').optional(),
     tutorshipType: TutorshipTypeEnum,
-    transferNotes: z.string().optional(),
+    transferNotes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').optional(),
   })
   .refine(
     (data) => {

@@ -141,7 +141,7 @@ Ler os primeiros bytes do buffer e verificar a assinatura:
 | ID           | TECH-BE-006 |
 | Categoria    | Segurança |
 | Prioridade   | Alta |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 Campos de texto como `name`, `description`, `notes`, `email`, `address` não têm limite máximo. Payloads gigantes sobrecarregam o banco e o servidor (vetor de DoS).
