@@ -73,6 +73,12 @@ const MOCK_PERSON = {
   updatedAt: new Date('2026-01-01'),
 }
 
+const MOCK_ORG_REPORT: LostFoundReport = {
+  ...MOCK_REPORT,
+  organizationId: 'org-1',
+  organization: { id: 'org-1', name: 'ONG Amigos dos Pets', photoUrl: null },
+}
+
 function makeLostFoundRepo(overrides: Partial<ILostFoundRepository> = {}): jest.Mocked<ILostFoundRepository> {
   return {
     create: jest.fn(),
@@ -444,6 +450,53 @@ describe('LostFoundService', () => {
       expect(result.status).toBe('RESOLVED')
       expect(lostFoundRepo.updateStatus).toHaveBeenCalledWith('report-1', 'RESOLVED')
     })
+
+    it('should update status when user is OWNER of the org that owns the report', async () => {
+      const updated: LostFoundReport = { ...MOCK_ORG_REPORT, status: 'RESOLVED' }
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      lostFoundRepo.updateStatus.mockResolvedValueOnce(updated)
+
+      const result = await service.updateStatus('report-1', 'RESOLVED', 'user-1')
+
+      expect(orgRepo.getRole).toHaveBeenCalledWith('org-1', 'person-1')
+      expect(result.status).toBe('RESOLVED')
+    })
+
+    it('should update status when user is MANAGER of the org that owns the report', async () => {
+      const updated: LostFoundReport = { ...MOCK_ORG_REPORT, status: 'RESOLVED' }
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      lostFoundRepo.updateStatus.mockResolvedValueOnce(updated)
+
+      await service.updateStatus('report-1', 'RESOLVED', 'user-1')
+
+      expect(lostFoundRepo.updateStatus).toHaveBeenCalled()
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(service.updateStatus('report-1', 'RESOLVED', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not a member of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce(null)
+
+      await expect(service.updateStatus('report-1', 'RESOLVED', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
   })
 
   // ── delete ────────────────────────────────────────────────────────────────
@@ -486,6 +539,51 @@ describe('LostFoundService', () => {
       await service.delete('report-1', 'user-1')
 
       expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
+    })
+
+    it('should delete report when user is OWNER of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      lostFoundRepo.delete.mockResolvedValueOnce(undefined)
+
+      await service.delete('report-1', 'user-1')
+
+      expect(orgRepo.getRole).toHaveBeenCalledWith('org-1', 'person-1')
+      expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
+    })
+
+    it('should delete report when user is MANAGER of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      lostFoundRepo.delete.mockResolvedValueOnce(undefined)
+
+      await service.delete('report-1', 'user-1')
+
+      expect(lostFoundRepo.delete).toHaveBeenCalledWith('report-1')
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(service.delete('report-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not a member of the org that owns the report', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_ORG_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce(null)
+
+      await expect(service.delete('report-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
     })
   })
 

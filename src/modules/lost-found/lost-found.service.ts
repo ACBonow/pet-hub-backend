@@ -99,7 +99,15 @@ export class LostFoundService {
 
   private async verifyReportOwnership(report: LostFoundReport, userId: string): Promise<void> {
     const person = await this.personRepository.findByUserId(userId)
-    if (!person || report.reporterId !== person.id) {
+    if (!person) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador do relatório pode modificá-lo.')
+    }
+    if (report.organizationId) {
+      const role = await this.orgRepository.getRole(report.organizationId, person.id)
+      if (!role || role === 'MEMBER') {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER podem modificar este relatório.')
+      }
+    } else if (report.reporterId !== person.id) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador do relatório pode modificá-lo.')
     }
   }
