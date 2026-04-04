@@ -166,7 +166,7 @@ Todos os `*.schema.ts` — auth, person, organization, pet, adoption, lost-found
 | ID           | TECH-BE-007 |
 | Categoria    | Segurança |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 `jwt.sign()` usa o algoritmo padrão implicitamente. Se manipulado via env, poderia aceitar `none` ou outro algoritmo fraco.

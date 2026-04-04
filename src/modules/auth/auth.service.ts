@@ -37,8 +37,8 @@ function generateSecureToken(): string {
 }
 
 export function generateTokens(userId: string): AuthTokens {
-  const accessOptions = { expiresIn: env.JWT_EXPIRES_IN } as SignOptions
-  const refreshOptions = { expiresIn: env.JWT_REFRESH_EXPIRES_IN } as SignOptions
+  const accessOptions = { expiresIn: env.JWT_EXPIRES_IN, algorithm: 'HS256' } as SignOptions
+  const refreshOptions = { expiresIn: env.JWT_REFRESH_EXPIRES_IN, algorithm: 'HS256' } as SignOptions
 
   const accessToken = jwt.sign({ sub: userId }, env.JWT_SECRET, accessOptions)
   const refreshToken = jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, refreshOptions)
@@ -123,7 +123,7 @@ export class AuthService {
     }
 
     try {
-      jwt.verify(input.refreshToken, env.JWT_REFRESH_SECRET)
+      jwt.verify(input.refreshToken, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] })
     } catch {
       throw HttpError.unauthorized('Refresh token expirado ou inválido.')
     }
