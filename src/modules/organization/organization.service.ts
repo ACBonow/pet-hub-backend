@@ -9,6 +9,7 @@ import { sanitizeCnpj, validateCnpj } from '../../shared/validators/cnpj.validat
 import { HttpError } from '../../shared/errors/HttpError'
 import { AppError } from '../../shared/errors/AppError'
 import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { logger } from '../../shared/utils/logger'
 import type { IOrganizationRepository } from './organization.repository'
 import type { IPersonRepository } from '../person'
 import type {
@@ -64,7 +65,9 @@ export class OrganizationService {
       throw HttpError.badRequest('CNPJ_REQUIRED', 'CNPJ é obrigatório para empresas.')
     }
 
-    return this.repository.create({ ...input, cnpj, responsiblePersonId })
+    const org = await this.repository.create({ ...input, cnpj, responsiblePersonId })
+    logger.info('org.created', { orgId: org.id, actorUserId: creatorUserId, action: 'org.created', payload: { name: org.name, type: org.type } })
+    return org
   }
 
   async findById(id: string, userId?: string): Promise<OrganizationRecord> {
@@ -96,7 +99,9 @@ export class OrganizationService {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode editar a organização.')
     }
 
-    return this.repository.update(id, data)
+    const updated = await this.repository.update(id, data)
+    logger.info('org.updated', { orgId: id, actorUserId: userId, action: 'org.updated', payload: data })
+    return updated
   }
 
   async delete(id: string, userId: string): Promise<void> {
@@ -112,6 +117,7 @@ export class OrganizationService {
     }
 
     await this.repository.delete(id)
+    logger.info('org.deleted', { orgId: id, actorUserId: userId, action: 'org.deleted', payload: {} })
   }
 
   async findMyOrganizations(userId: string): Promise<OrganizationRecord[]> {
@@ -156,6 +162,7 @@ export class OrganizationService {
     }
 
     await this.repository.removePerson(organizationId, personId)
+    logger.info('org.member.removed', { orgId: organizationId, action: 'org.member.removed', payload: { personId } })
   }
 
   async changeRole(organizationId: string, personId: string, newRole: OrgRole): Promise<void> {
@@ -183,6 +190,7 @@ export class OrganizationService {
     }
 
     await this.repository.setRole(organizationId, personId, newRole)
+    logger.info('org.member.role.changed', { orgId: organizationId, action: 'org.member.role.changed', payload: { personId, newRole } })
   }
 
   async getMembers(organizationId: string): Promise<OrganizationMemberView[]> {
@@ -219,6 +227,7 @@ export class OrganizationService {
     }
 
     await this.repository.addPerson(orgId, targetPerson.id, role)
+    logger.info('org.member.added', { orgId, actorUserId: requestingUserId, action: 'org.member.added', payload: { personId: targetPerson.id, role } })
   }
 
   async uploadPhoto(orgId: string, userId: string, file: Buffer, mimeType: string): Promise<OrganizationRecord> {
@@ -246,6 +255,7 @@ export class OrganizationService {
     await this.repository.updatePhotoUrl(orgId, photoUrl)
 
     const updated = await this.repository.findById(orgId)
+    logger.info('org.photo.updated', { orgId, actorUserId: userId, action: 'org.photo.updated', payload: {} })
     return updated!
   }
 }

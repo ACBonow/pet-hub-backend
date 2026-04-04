@@ -186,7 +186,7 @@ Passar `{ algorithm: 'HS256' }` explicitamente em todos os `jwt.sign()` e `jwt.v
 | ID           | TECH-BE-008 |
 | Categoria    | Segurança |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 Não há rastreabilidade de quem adicionou/removeu membros, mudou roles ou editou dados da organização.
