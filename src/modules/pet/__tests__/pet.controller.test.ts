@@ -766,7 +766,7 @@ describe('Pet routes', () => {
       const petWithPhoto = { ...MOCK_PET, photoUrl: 'https://storage.example.com/pet-images/pet-1/123.jpg' }
       jest.mocked(service.uploadPhoto).mockResolvedValueOnce(petWithPhoto as any)
 
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'POST',
@@ -836,7 +836,7 @@ describe('Pet routes', () => {
       const { HttpError } = await import('../../../shared/errors/HttpError')
       jest.mocked(service.uploadPhoto).mockRejectedValueOnce(HttpError.notFound('Pet'))
 
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'POST',

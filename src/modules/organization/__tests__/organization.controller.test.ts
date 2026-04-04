@@ -861,14 +861,11 @@ describe('Organization routes', () => {
 
       const token = makeAuthToken()
       const boundary = 'boundary'
-      const body = [
-        `--${boundary}`,
-        'Content-Disposition: form-data; name="file"; filename="photo.jpg"',
-        'Content-Type: image/jpeg',
-        '',
-        'fake',
-        `--${boundary}--`,
-      ].join('\r\n')
+      const payload = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="photo.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`),
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+        Buffer.from(`\r\n--${boundary}--`),
+      ])
 
       const response = await app.inject({
         method: 'PATCH',
@@ -877,7 +874,7 @@ describe('Organization routes', () => {
           authorization: `Bearer ${token}`,
           'content-type': `multipart/form-data; boundary=${boundary}`,
         },
-        payload: Buffer.from(body),
+        payload,
       })
 
       expect(jest.mocked(service.uploadPhoto)).toHaveBeenCalled()
@@ -932,7 +929,11 @@ describe('Organization routes', () => {
           authorization: `Bearer ${makeAuthToken()}`,
           'content-type': 'multipart/form-data; boundary=boundary',
         },
-        payload: Buffer.from('--boundary\r\nContent-Disposition: form-data; name="file"; filename="photo.jpg"\r\nContent-Type: image/jpeg\r\n\r\nfake\r\n--boundary--'),
+        payload: Buffer.concat([
+          Buffer.from('--boundary\r\nContent-Disposition: form-data; name="file"; filename="photo.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'),
+          Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+          Buffer.from('\r\n--boundary--'),
+        ]),
       })
 
       expect(response.statusCode).toBe(403)

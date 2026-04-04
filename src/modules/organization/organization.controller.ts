@@ -13,6 +13,7 @@ import {
 } from './organization.schema'
 import type { OrganizationService } from './organization.service'
 import { resolveActorContext } from '../../shared/utils/resolve-actor-context'
+import { validateImageMagicBytes } from '../../shared/utils/validate-image-magic'
 
 export class OrganizationController {
   constructor(private service: OrganizationService) {}
@@ -144,6 +145,13 @@ export class OrganizationController {
       return reply.status(400).send({
         success: false,
         error: { code: 'FILE_TOO_LARGE', message: 'Arquivo muito grande. Limite: 5 MB.' },
+      })
+    }
+
+    if (!validateImageMagicBytes(buffer, data.mimetype)) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'INVALID_FILE_TYPE', message: 'O conteúdo do arquivo não corresponde ao tipo declarado.' },
       })
     }
 

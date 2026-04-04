@@ -7,6 +7,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { AddVaccinationSchema } from './petHealth.schema'
 import type { PetHealthService } from './petHealth.service'
+import { validateImageMagicBytes } from '../../shared/utils/validate-image-magic'
 
 export class PetHealthController {
   constructor(private service: PetHealthService) {}
@@ -77,6 +78,14 @@ export class PetHealthController {
         else if (part.fieldname === 'labName') labName = value
         else if (part.fieldname === 'notes') notes = value
       }
+    }
+
+    const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    if (fileBuffer && IMAGE_TYPES.includes(contentType) && !validateImageMagicBytes(fileBuffer, contentType)) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'INVALID_FILE_TYPE', message: 'O conteúdo do arquivo não corresponde ao tipo declarado.' },
+      })
     }
 
     if (!fileBuffer || !examType || !examDate) {

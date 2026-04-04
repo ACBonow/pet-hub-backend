@@ -11,6 +11,7 @@ import {
   UpdateServiceListingSchema,
 } from './servicesDirectory.schema'
 import type { ServicesDirectoryService } from './servicesDirectory.service'
+import { validateImageMagicBytes } from '../../shared/utils/validate-image-magic'
 
 export class ServicesDirectoryController {
   constructor(private service: ServicesDirectoryService) {}
@@ -117,6 +118,13 @@ export class ServicesDirectoryController {
       return reply.status(400).send({
         success: false,
         error: { code: 'FILE_TOO_LARGE', message: 'Arquivo muito grande. Limite: 5 MB.' },
+      })
+    }
+
+    if (!validateImageMagicBytes(buffer, data.mimetype)) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'INVALID_FILE_TYPE', message: 'O conteúdo do arquivo não corresponde ao tipo declarado.' },
       })
     }
 

@@ -395,7 +395,7 @@ describe('ServicesDirectory routes', () => {
   describe('PATCH /api/v1/services-directory/:id/photo', () => {
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'PATCH',
@@ -427,7 +427,7 @@ describe('ServicesDirectory routes', () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.uploadPhoto).mockResolvedValueOnce(updated as any)
 
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'PATCH',
@@ -449,7 +449,7 @@ describe('ServicesDirectory routes', () => {
         new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.')
       )
 
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'PATCH',
@@ -466,7 +466,7 @@ describe('ServicesDirectory routes', () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.uploadPhoto).mockRejectedValueOnce(HttpError.notFound('Serviço'))
 
-      const { payload, headers } = makeMultipartBody(Buffer.from('fake-jpeg'), 'photo.jpg', 'image/jpeg')
+      const { payload, headers } = makeMultipartBody(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'photo.jpg', 'image/jpeg')
 
       const response = await app.inject({
         method: 'PATCH',
