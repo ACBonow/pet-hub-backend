@@ -10,6 +10,7 @@ import { env } from './shared/config/env'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
 import { registerErrorHandler } from './shared/middleware/error.middleware'
+import { registerRateLimit } from './shared/plugins/rate-limit'
 import { ResendEmailService } from './shared/utils/email'
 import { PrismaAuthRepository, registerAuthRoutes, AuthService } from './modules/auth'
 import { PrismaPersonRepository, registerPersonRoutes, PersonService } from './modules/person'
@@ -32,6 +33,11 @@ export function buildApp(): FastifyInstance {
 
   app.register(helmet)
   app.register(multipart)
+
+  // Rate limiting (disabled in test env to avoid polluting unit/integration tests)
+  if (env.NODE_ENV !== 'test') {
+    registerRateLimit(app)
+  }
 
   // Global error handler
   registerErrorHandler(app)
