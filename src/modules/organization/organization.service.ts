@@ -236,7 +236,7 @@ export class OrganizationService {
 
     if (org.photoUrl) {
       const oldPath = extractPathFromUrl(org.photoUrl, 'org-images')
-      await this.fileStorage.delete('org-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('org-images', oldPath).catch((err) => logger.warn('storage.delete.failed', { err, bucket: 'org-images', path: oldPath }))
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'

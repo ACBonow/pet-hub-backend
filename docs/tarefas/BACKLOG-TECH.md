@@ -356,7 +356,7 @@ Todos os deletes são permanentes. Perda de dados irreversível em `AdoptionList
 | ID           | TECH-BE-015 |
 | Categoria    | Performance |
 | Prioridade   | Alta |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 As listagens filtram por `status` e ordenam por `createdAt`. Sem índice composto, o PostgreSQL faz scan + sort — ineficiente com dados crescentes.
@@ -469,7 +469,7 @@ Em Vercel, cada função pode criar novas conexões. Sem `connection_limit=1` no
 | ID           | TECH-BE-020 |
 | Categoria    | Qualidade |
 | Prioridade   | Alta |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 A deleção do arquivo antigo no Supabase Storage usa `.catch(() => {})`, engolindo silenciosamente falhas. Arquivos órfãos se acumulam sem que ninguém saiba.

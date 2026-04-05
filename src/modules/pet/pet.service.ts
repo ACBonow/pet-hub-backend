@@ -6,6 +6,7 @@
 
 import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
+import { logger } from '../../shared/utils/logger'
 import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
 import type { IFileStorage } from '../../shared/storage/IFileStorage'
 import type { IPetRepository } from './pet.repository'
@@ -220,7 +221,7 @@ export class PetService {
 
     if (pet.photoUrl) {
       const oldPath = extractPathFromUrl(pet.photoUrl, 'pet-images')
-      await this.fileStorage.delete('pet-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('pet-images', oldPath).catch((err) => logger.warn('storage.delete.failed', { err, bucket: 'pet-images', path: oldPath }))
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'

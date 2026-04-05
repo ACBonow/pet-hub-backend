@@ -6,6 +6,7 @@
 
 import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
+import { logger } from '../../shared/utils/logger'
 import { buildPaginationMeta } from '../../shared/types/pagination'
 import type { PaginatedResult } from '../../shared/types/pagination'
 import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
@@ -133,7 +134,7 @@ export class ServicesDirectoryService {
 
     if (service.photoUrl) {
       const oldPath = extractPathFromUrl(service.photoUrl, 'service-images')
-      await this.fileStorage!.delete('service-images', oldPath).catch(() => {})
+      await this.fileStorage!.delete('service-images', oldPath).catch((err) => logger.warn('storage.delete.failed', { err, bucket: 'service-images', path: oldPath }))
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'

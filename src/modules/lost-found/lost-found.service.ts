@@ -6,6 +6,7 @@
 
 import { HttpError } from '../../shared/errors/HttpError'
 import { AppError } from '../../shared/errors/AppError'
+import { logger } from '../../shared/utils/logger'
 import { buildPaginationMeta } from '../../shared/types/pagination'
 import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
 import type { IFileStorage } from '../../shared/storage/IFileStorage'
@@ -141,7 +142,7 @@ export class LostFoundService {
 
     if (report.photoUrl) {
       const oldPath = extractPathFromUrl(report.photoUrl, 'lost-found-images')
-      await this.fileStorage.delete('lost-found-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('lost-found-images', oldPath).catch((err) => logger.warn('storage.delete.failed', { err, bucket: 'lost-found-images', path: oldPath }))
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
