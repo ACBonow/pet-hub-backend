@@ -124,6 +124,7 @@ model Pet {
   notes     String?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   tutorships       Tutorship[]
   coTutors         CoTutor[]
@@ -132,6 +133,7 @@ model Pet {
   adoptionListing  AdoptionListing?
   lostFoundReports LostFoundReport[]
 
+  @@index([deletedAt])
   @@map("pets")
 }
 
@@ -207,12 +209,14 @@ model AdoptionListing {
   status           AdoptionStatus @default(AVAILABLE)
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
 
   pet          Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
   person       Person?       @relation("PersonAdoption", fields: [personId], references: [id])
   organization Organization? @relation("OrgAdoption", fields: [organizationId], references: [id])
 
   @@index([status])
+  @@index([deletedAt])
   @@map("adoption_listings")
 }
 
@@ -252,12 +256,14 @@ model LostFoundReport {
   status              LostFoundStatus @default(OPEN)
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
+  deletedAt           DateTime?       @map("deleted_at")
 
   pet          Pet?          @relation(fields: [petId], references: [id])
   reporter     Person        @relation(fields: [reporterId], references: [id])
   organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([type, status])
+  @@index([deletedAt])
   @@map("lost_found_reports")
 }
 
@@ -338,13 +344,15 @@ model ServiceListing {
   googleBusinessUrl  String?  @map("google_business_url")
   organizationId     String?  @map("organization_id")
   photoUrl           String?  @map("photo_url")
-  createdByUserId    String?  @map("created_by_user_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdByUserId    String?   @map("created_by_user_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
 
   serviceType  ServiceType    @relation(fields: [serviceTypeId], references: [id])
   organization Organization?  @relation(fields: [organizationId], references: [id])
 
   @@index([serviceTypeId])
+  @@index([deletedAt])
   @@map("service_listings")
 }

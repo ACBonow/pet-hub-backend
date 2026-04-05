@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../shared/config/database'
+import { mapReport, LOST_FOUND_INCLUDE } from './lost-found.mapper'
 import type {
   LostFoundCreateInput,
   LostFoundListFilters,
@@ -21,35 +22,6 @@ export interface ILostFoundRepository {
   delete(id: string): Promise<void>
 }
 
-function mapReport(row: any): LostFoundReport {
-  return {
-    id: row.id,
-    type: row.type as 'LOST' | 'FOUND',
-    petId: row.petId,
-    reporterId: row.reporterId,
-    petName: row.petName ?? null,
-    species: row.species ?? null,
-    description: row.description,
-    location: row.location ?? null,
-    addressStreet: row.addressStreet ?? null,
-    addressNeighborhood: row.addressNeighborhood ?? null,
-    addressNumber: row.addressNumber ?? null,
-    addressCep: row.addressCep ?? null,
-    addressCity: row.addressCity ?? null,
-    addressState: row.addressState ?? null,
-    addressNotes: row.addressNotes ?? null,
-    photoUrl: row.photoUrl ?? null,
-    contactEmail: row.contactEmail ?? null,
-    contactPhone: row.contactPhone ?? null,
-    status: row.status as LostFoundStatus,
-    organizationId: row.organizationId ?? null,
-    organization: row.organization
-      ? { id: row.organization.id, name: row.organization.name, photoUrl: row.organization.photoUrl ?? null }
-      : null,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }
-}
 
 export class PrismaLostFoundRepository implements ILostFoundRepository {
   async create(data: LostFoundCreateInput): Promise<LostFoundReport> {
@@ -76,16 +48,15 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
         contactPhone: data.contactPhone ?? null,
         status: 'OPEN',
       },
-      include: { organization: { select: { id: true, name: true, photoUrl: true } } },
+      include: LOST_FOUND_INCLUDE,
     })
     return mapReport(row)
   }
 
   async findById(id: string): Promise<LostFoundReport | null> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const row = await (prisma.lostFoundReport as any).findUnique({
-      where: { id },
-      include: { organization: { select: { id: true, name: true, photoUrl: true } } },
+    const row = await prisma.lostFoundReport.findFirst({
+      where: { id, deletedAt: null },
+      include: LOST_FOUND_INCLUDE,
     })
     return row ? mapReport(row) : null
   }
@@ -94,19 +65,18 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
     const page = filters.page ?? 1
     const pageSize = filters.pageSize ?? 20
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { deletedAt: null }
     if (filters.type) where['type'] = filters.type
     if (filters.status) where['status'] = filters.status
     if (filters.organizationId) where['organizationId'] = filters.organizationId
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [rows, total] = await prisma.$transaction([
-      (prisma.lostFoundReport as any).findMany({
+      prisma.lostFoundReport.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
-        include: { organization: { select: { id: true, name: true, photoUrl: true } } },
+        include: LOST_FOUND_INCLUDE,
       }),
       prisma.lostFoundReport.count({ where }),
     ])
@@ -118,6 +88,7 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
     const row = await prisma.lostFoundReport.update({
       where: { id },
       data: { status: status as any },
+      include: LOST_FOUND_INCLUDE,
     })
     return mapReport(row)
   }
@@ -127,6 +98,6 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await prisma.lostFoundReport.delete({ where: { id } })
+    await prisma.lostFoundReport.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 }

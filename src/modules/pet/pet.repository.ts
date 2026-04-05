@@ -6,6 +6,7 @@
 
 import { prisma } from '../../shared/config/database'
 import type { Prisma } from '@prisma/client'
+import { coTutorInclude, tutorshipInclude, mapTutorship, mapCoTutor, mapPet } from './pet.mapper'
 import type {
   AddCoTutorRepoInput,
   CoTutorRecord,
@@ -31,63 +32,6 @@ export interface IPetRepository {
   removeCoTutor(petId: string, coTutorId: string): Promise<void>
 }
 
-const coTutorInclude = {
-  personTutor: { select: { name: true } },
-  orgTutor: { select: { name: true } },
-}
-
-const tutorshipInclude = {
-  tutorships: { where: { active: true }, take: 1 },
-  coTutors: { include: coTutorInclude },
-}
-
-function mapTutorship(t: any): TutorshipRecord {
-  return {
-    id: t.id,
-    petId: t.petId,
-    tutorType: t.tutorType as 'PERSON' | 'ORGANIZATION',
-    personTutorId: t.personTutorId,
-    orgTutorId: t.orgTutorId,
-    type: t.type as 'OWNER' | 'TUTOR' | 'TEMPORARY_HOME',
-    active: t.active,
-    startDate: t.startDate,
-    endDate: t.endDate,
-    transferNotes: t.transferNotes,
-    createdAt: t.createdAt,
-  }
-}
-
-function mapCoTutor(c: any): CoTutorRecord {
-  const name: string = c.personTutor?.name ?? c.orgTutor?.name ?? ''
-  return {
-    id: c.id,
-    petId: c.petId,
-    tutorType: c.tutorType as 'PERSON' | 'ORGANIZATION',
-    personTutorId: c.personTutorId,
-    orgTutorId: c.orgTutorId,
-    name,
-    assignedAt: c.assignedAt,
-  }
-}
-
-function mapPet(pet: any): PetRecord {
-  return {
-    id: pet.id,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed,
-    gender: pet.gender,
-    castrated: pet.castrated ?? null,
-    birthDate: pet.birthDate,
-    photoUrl: pet.photoUrl,
-    microchip: pet.microchip,
-    notes: pet.notes,
-    createdAt: pet.createdAt,
-    updatedAt: pet.updatedAt,
-    activeTutorship: pet.tutorships?.[0] ? mapTutorship(pet.tutorships[0]) : null,
-    coTutors: (pet.coTutors ?? []).map(mapCoTutor),
-  }
-}
 
 export class PrismaPetRepository implements IPetRepository {
   async create(data: PetCreateInput): Promise<PetRecord> {
@@ -122,13 +66,14 @@ export class PrismaPetRepository implements IPetRepository {
   }
 
   async findById(id: string): Promise<PetRecord | null> {
-    const pet = await prisma.pet.findUnique({ where: { id }, include: tutorshipInclude })
+    const pet = await prisma.pet.findFirst({ where: { id, deletedAt: null }, include: tutorshipInclude })
     return pet ? mapPet(pet) : null
   }
 
   async findByPersonId(personId: string): Promise<PetRecord[]> {
     const pets = await prisma.pet.findMany({
       where: {
+        deletedAt: null,
         tutorships: { some: { personTutorId: personId, active: true } },
       },
       include: tutorshipInclude,
@@ -139,6 +84,7 @@ export class PrismaPetRepository implements IPetRepository {
   async findByOrgId(orgId: string): Promise<PetRecord[]> {
     const pets = await prisma.pet.findMany({
       where: {
+        deletedAt: null,
         tutorships: { some: { orgTutorId: orgId, active: true } },
       },
       include: tutorshipInclude,
@@ -165,7 +111,7 @@ export class PrismaPetRepository implements IPetRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await prisma.pet.delete({ where: { id } })
+    await prisma.pet.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 
   async updatePhotoUrl(id: string, photoUrl: string | null): Promise<void> {

@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../shared/config/database'
+import { mapListing, mapServiceType, LISTING_INCLUDE, SERVICE_TYPE_SELECT } from './servicesDirectory.mapper'
 import type {
   CreateServiceListingInput,
   ListServicesFilter,
@@ -13,15 +14,6 @@ import type {
   ServiceTypeRecord,
   UpdateServiceListingInput,
 } from './servicesDirectory.types'
-
-const SERVICE_TYPE_SELECT = {
-  id: true,
-  code: true,
-  label: true,
-  color: true,
-  active: true,
-  sortOrder: true,
-}
 
 // ─── ServiceType Repository ───────────────────────────────────────────────────
 
@@ -32,18 +24,20 @@ export interface IServiceTypeRepository {
 
 export class PrismaServiceTypeRepository implements IServiceTypeRepository {
   async findAll(): Promise<ServiceTypeRecord[]> {
-    return prisma.serviceType.findMany({
+    const rows = await prisma.serviceType.findMany({
       where: { active: true },
       orderBy: { sortOrder: 'asc' },
       select: SERVICE_TYPE_SELECT,
-    }) as Promise<ServiceTypeRecord[]>
+    })
+    return rows.map(mapServiceType)
   }
 
   async findByCode(code: string): Promise<ServiceTypeRecord | null> {
-    return prisma.serviceType.findUnique({
+    const row = await prisma.serviceType.findUnique({
       where: { code },
       select: SERVICE_TYPE_SELECT,
-    }) as Promise<ServiceTypeRecord | null>
+    })
+    return row ? mapServiceType(row) : null
   }
 }
 
@@ -56,14 +50,6 @@ export interface IServicesDirectoryRepository {
   update(id: string, data: UpdateServiceListingInput & { serviceTypeId?: string }): Promise<ServiceListing>
   delete(id: string): Promise<void>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
-}
-
-const LISTING_INCLUDE = {
-  serviceType: { select: SERVICE_TYPE_SELECT },
-}
-
-function mapListing(raw: any): ServiceListing {
-  return raw as ServiceListing
 }
 
 export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepository {
@@ -99,8 +85,8 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
   }
 
   async findById(id: string): Promise<ServiceListing | null> {
-    const raw = await prisma.serviceListing.findUnique({
-      where: { id },
+    const raw = await prisma.serviceListing.findFirst({
+      where: { id, deletedAt: null },
       include: LISTING_INCLUDE,
     })
     return raw ? mapListing(raw) : null
@@ -111,7 +97,7 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
     const pageSize = filter.pageSize ?? 20
     const skip = (page - 1) * pageSize
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { deletedAt: null }
     if (filter.type) where.serviceType = { code: filter.type }
     if (filter.name) where.name = { contains: filter.name, mode: 'insensitive' }
     if (filter.organizationId) where.organizationId = filter.organizationId
@@ -162,7 +148,7 @@ export class PrismaServicesDirectoryRepository implements IServicesDirectoryRepo
   }
 
   async delete(id: string): Promise<void> {
-    await prisma.serviceListing.delete({ where: { id } })
+    await prisma.serviceListing.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 
   async updatePhotoUrl(id: string, photoUrl: string | null): Promise<void> {

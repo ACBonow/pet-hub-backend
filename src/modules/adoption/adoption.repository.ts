@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '../../shared/config/database'
+import { mapListing, ADOPTION_LISTING_INCLUDE } from './adoption.mapper'
 import type {
   AdoptionCreateInput,
   AdoptionListFilters,
@@ -21,28 +22,6 @@ export interface IAdoptionRepository {
   delete(id: string): Promise<void>
 }
 
-function mapListing(row: any): AdoptionListingRecord {
-  return {
-    id: row.id,
-    petId: row.petId,
-    petName: row.pet?.name ?? '',
-    species: row.pet?.species ?? '',
-    breed: row.pet?.breed ?? null,
-    photoUrl: row.pet?.photoUrl ?? null,
-    gender: row.pet?.gender ?? null,
-    castrated: row.pet?.castrated ?? null,
-    listerType: row.listenerType as 'PERSON' | 'ORGANIZATION',
-    personId: row.personId,
-    organizationId: row.organizationId,
-    description: row.description,
-    contactEmail: row.contactEmail,
-    contactPhone: row.contactPhone,
-    contactWhatsapp: row.contactWhatsapp,
-    status: row.status as AdoptionStatus,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }
-}
 
 export class PrismaAdoptionRepository implements IAdoptionRepository {
   async create(data: AdoptionCreateInput): Promise<AdoptionListingRecord> {
@@ -58,25 +37,25 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
         contactWhatsapp: data.contactWhatsapp ?? null,
         status: 'AVAILABLE',
       },
-      include: { pet: true },
+      include: ADOPTION_LISTING_INCLUDE,
     })
     return mapListing(row)
   }
 
   async findById(id: string): Promise<AdoptionListingRecord | null> {
-    const row = await prisma.adoptionListing.findUnique({ where: { id }, include: { pet: true } })
+    const row = await prisma.adoptionListing.findFirst({ where: { id, deletedAt: null }, include: { pet: true } })
     return row ? mapListing(row) : null
   }
 
   async findByPetId(petId: string): Promise<AdoptionListingRecord | null> {
-    const row = await prisma.adoptionListing.findUnique({ where: { petId }, include: { pet: true } })
+    const row = await prisma.adoptionListing.findFirst({ where: { petId, deletedAt: null }, include: { pet: true } })
     return row ? mapListing(row) : null
   }
 
   async findAll(filters: AdoptionListFilters): Promise<{ listings: AdoptionListingRecord[]; total: number }> {
     const page = filters.page ?? 1
     const pageSize = filters.pageSize ?? 20
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { deletedAt: null }
     if (filters.status) where.status = filters.status
     if (filters.organizationId) where.organizationId = filters.organizationId
 
@@ -86,7 +65,7 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
-        include: { pet: true },
+        include: ADOPTION_LISTING_INCLUDE,
       }),
       prisma.adoptionListing.count({ where }),
     ])
@@ -98,12 +77,12 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
     const row = await prisma.adoptionListing.update({
       where: { id },
       data: { status: status as any },
-      include: { pet: true },
+      include: ADOPTION_LISTING_INCLUDE,
     })
     return mapListing(row)
   }
 
   async delete(id: string): Promise<void> {
-    await prisma.adoptionListing.delete({ where: { id } })
+    await prisma.adoptionListing.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 }
