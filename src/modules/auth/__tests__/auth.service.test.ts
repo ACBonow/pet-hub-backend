@@ -58,7 +58,6 @@ function makeRepo(overrides: Partial<IAuthRepository> = {}): jest.Mocked<IAuthRe
   return {
     findUserByEmail: jest.fn(),
     findUserById: jest.fn(),
-    createUser: jest.fn(),
     createUserWithPerson: jest.fn(),
     setRefreshToken: jest.fn(),
     findUserByRefreshToken: jest.fn(),
@@ -165,7 +164,6 @@ describe('AuthService', () => {
         '$2b$10$hashed',
         expect.objectContaining({ name: 'João Silva', cpf: '52998224725' }),
       )
-      expect(repo.createUser).not.toHaveBeenCalled()
       expect(personRepo.create).not.toHaveBeenCalled()
       expect(repo.setVerificationToken).toHaveBeenCalledWith(
         UNVERIFIED_USER.id,

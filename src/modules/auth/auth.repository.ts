@@ -10,8 +10,6 @@ import type { PersonSnapshot, UserRecord } from './auth.types'
 export interface IAuthRepository {
   findUserByEmail(email: string): Promise<UserRecord | null>
   findUserById(id: string): Promise<UserRecord | null>
-  /** @deprecated Use createUserWithPerson para garantir atomicidade. */
-  createUser(email: string, passwordHash: string): Promise<UserRecord>
   /**
    * Cria User e Person em uma única transação Prisma.
    * Se qualquer etapa falhar, nenhum registro persiste.
@@ -39,10 +37,6 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async findUserById(id: string): Promise<UserRecord | null> {
     return prisma.user.findUnique({ where: { id } })
-  }
-
-  async createUser(email: string, passwordHash: string): Promise<UserRecord> {
-    return prisma.user.create({ data: { email, passwordHash } })
   }
 
   async createUserWithPerson(
