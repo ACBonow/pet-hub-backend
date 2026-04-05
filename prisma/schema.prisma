@@ -215,7 +215,7 @@ model AdoptionListing {
   person       Person?       @relation("PersonAdoption", fields: [personId], references: [id])
   organization Organization? @relation("OrgAdoption", fields: [organizationId], references: [id])
 
-  @@index([status])
+  @@index([status, createdAt(sort: Desc)])
   @@index([deletedAt])
   @@map("adoption_listings")
 }
@@ -262,7 +262,8 @@ model LostFoundReport {
   reporter     Person        @relation(fields: [reporterId], references: [id])
   organization Organization? @relation(fields: [organizationId], references: [id])
 
-  @@index([type, status])
+  @@index([type, status, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
   @@index([deletedAt])
   @@map("lost_found_reports")
 }
