@@ -261,9 +261,10 @@ describe('AdoptionService', () => {
       const result = await service.findAll({ status: 'AVAILABLE', page: 1, pageSize: 20 })
 
       expect(result.data).toHaveLength(1)
-      expect(result.total).toBe(1)
-      expect(result.page).toBe(1)
-      expect(result.pageSize).toBe(20)
+      expect(result.meta.total).toBe(1)
+      expect(result.meta.page).toBe(1)
+      expect(result.meta.pageSize).toBe(20)
+      expect(result.meta.totalPages).toBe(1)
     })
 
     it('should return all listings when no status filter applied', async () => {

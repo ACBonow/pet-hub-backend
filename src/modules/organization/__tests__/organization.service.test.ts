@@ -6,15 +6,13 @@
 
 import type { IOrganizationRepository } from '../organization.repository'
 import type { IPersonRepository } from '../../person'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
 import type { OrganizationRecord } from '../organization.types'
 import { OrganizationService } from '../organization.service'
-import * as storage from '../../../shared/utils/storage'
+import { hasOrgPermission } from '../../../shared/utils/org-permission'
 
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn(),
-  deleteFile: jest.fn(),
-  extractPathFromUrl: jest.requireActual('../../../shared/utils/storage').extractPathFromUrl,
-}))
+jest.mock('../../../shared/utils/org-permission')
+const mockHasOrgPermission = hasOrgPermission as jest.MockedFunction<typeof hasOrgPermission>
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -98,11 +96,16 @@ describe('OrganizationService', () => {
   let service: OrganizationService
   let orgRepo: jest.Mocked<IOrganizationRepository>
   let personRepo: jest.Mocked<IPersonRepository>
+  let mockFileStorage: jest.Mocked<IFileStorage>
 
   beforeEach(() => {
     orgRepo = makeOrgRepo()
     personRepo = makePersonRepo()
-    service = new OrganizationService(orgRepo, personRepo)
+    mockFileStorage = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+    }
+    service = new OrganizationService(orgRepo, personRepo, mockFileStorage)
   })
 
   // ── create ────────────────────────────────────────────────────────────────
@@ -254,8 +257,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user is not OWNER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(
         service.update('org-1', { name: 'Novo Nome' }, 'user-2'),
@@ -264,7 +266,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(null)
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(
         service.update('org-1', { name: 'Novo Nome' }, 'user-no-person'),
@@ -274,8 +276,7 @@ describe('OrganizationService', () => {
     it('should update and return updated organization when user is OWNER', async () => {
       const updated = { ...MOCK_ORG, name: 'Novo Nome' }
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       orgRepo.update.mockResolvedValueOnce(updated)
 
       const result = await service.update('org-1', { name: 'Novo Nome' }, 'user-1')
@@ -299,8 +300,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user is not OWNER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.delete('org-1', 'user-2')).rejects.toMatchObject({
         statusCode: 403,
@@ -310,7 +310,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(null)
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.delete('org-1', 'user-no-person')).rejects.toMatchObject({
         statusCode: 403,
@@ -320,8 +320,7 @@ describe('OrganizationService', () => {
 
     it('should delete organization when user is OWNER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       orgRepo.delete.mockResolvedValueOnce(undefined)
 
       await service.delete('org-1', 'user-1')
@@ -512,8 +511,7 @@ describe('OrganizationService', () => {
 
     it('should add member with given role when requester is OWNER and CPF is valid', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       personRepo.findByCpf.mockResolvedValueOnce(TARGET_PERSON)
       orgRepo.hasPerson.mockResolvedValueOnce(false)
       orgRepo.addPerson.mockResolvedValueOnce(undefined)
@@ -525,8 +523,7 @@ describe('OrganizationService', () => {
 
     it('should throw PERSON_NOT_FOUND when CPF does not match any Person', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       personRepo.findByCpf.mockResolvedValueOnce(null)
 
       await expect(service.addMember('org-1', '00000000000', 'MEMBER', 'user-1')).rejects.toMatchObject({
@@ -537,8 +534,7 @@ describe('OrganizationService', () => {
 
     it('should throw ALREADY_A_MEMBER when person is already in the org', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       personRepo.findByCpf.mockResolvedValueOnce(TARGET_PERSON)
       orgRepo.hasPerson.mockResolvedValueOnce(true)
 
@@ -550,8 +546,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when requester is MANAGER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(REQUESTER_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.addMember('org-1', '52998224725', 'MEMBER', 'user-1')).rejects.toMatchObject({
         statusCode: 403,
@@ -561,7 +556,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when requester has no person profile', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(null)
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.addMember('org-1', '52998224725', 'MEMBER', 'user-1')).rejects.toMatchObject({
         statusCode: 403,
@@ -651,26 +646,26 @@ describe('OrganizationService', () => {
   describe('uploadPhoto', () => {
     const FILE = Buffer.from('fake-image')
     const MIME = 'image/jpeg'
+    const PHOTO_URL = 'https://cdn.example.com/org-images/org-1/123.jpg'
 
     beforeEach(() => {
-      jest.mocked(storage.uploadFile).mockResolvedValue('https://cdn.example.com/org-images/org-1/123.jpg')
-      jest.mocked(storage.deleteFile).mockResolvedValue(undefined)
+      mockFileStorage.upload.mockResolvedValue(PHOTO_URL)
+      mockFileStorage.delete.mockResolvedValue(undefined)
     })
 
     it('should upload photo and return updated org', async () => {
-      const updatedOrg = { ...MOCK_ORG, photoUrl: 'https://cdn.example.com/org-images/org-1/123.jpg' }
+      const updatedOrg = { ...MOCK_ORG, photoUrl: PHOTO_URL }
       orgRepo.findById
         .mockResolvedValueOnce(MOCK_ORG)   // initial check
         .mockResolvedValueOnce(updatedOrg)  // after update
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('OWNER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       orgRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       const result = await service.uploadPhoto('org-1', 'user-1', FILE, MIME)
 
-      expect(storage.uploadFile).toHaveBeenCalledWith('org-images', expect.stringContaining('org-1/'), FILE, MIME)
+      expect(mockFileStorage.upload).toHaveBeenCalledWith('org-images', expect.stringContaining('org-1/'), FILE, MIME)
       expect(orgRepo.updatePhotoUrl).toHaveBeenCalledWith('org-1', expect.any(String))
-      expect(result.photoUrl).toBe('https://cdn.example.com/org-images/org-1/123.jpg')
+      expect(result.photoUrl).toBe(PHOTO_URL)
     })
 
     it('should delete old photo before uploading new one', async () => {
@@ -679,13 +674,12 @@ describe('OrganizationService', () => {
       orgRepo.findById
         .mockResolvedValueOnce(orgWithPhoto)
         .mockResolvedValueOnce(updatedOrg)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      mockHasOrgPermission.mockResolvedValueOnce(true)
       orgRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await service.uploadPhoto('org-1', 'user-1', FILE, MIME)
 
-      expect(storage.deleteFile).toHaveBeenCalledWith('org-images', expect.any(String))
+      expect(mockFileStorage.delete).toHaveBeenCalledWith('org-images', expect.any(String))
     })
 
     it('should throw NOT_FOUND when org does not exist', async () => {
@@ -697,8 +691,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user is not a member', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce(null)
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.uploadPhoto('org-1', 'user-1', FILE, MIME))
         .rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
@@ -706,8 +699,7 @@ describe('OrganizationService', () => {
 
     it('should throw INSUFFICIENT_PERMISSION when user is MEMBER', async () => {
       orgRepo.findById.mockResolvedValueOnce(MOCK_ORG)
-      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+      mockHasOrgPermission.mockResolvedValueOnce(false)
 
       await expect(service.uploadPhoto('org-1', 'user-1', FILE, MIME))
         .rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })

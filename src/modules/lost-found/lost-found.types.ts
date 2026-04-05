@@ -4,6 +4,8 @@
  * @description TypeScript interfaces for the lost-found module.
  */
 
+import type { PaginatedResult } from '../../shared/types/pagination'
+
 export type LostFoundType = 'LOST' | 'FOUND'
 
 export type LostFoundStatus = 'OPEN' | 'RESOLVED'
@@ -67,9 +69,4 @@ export interface LostFoundListFilters {
   pageSize?: number
 }
 
-export interface LostFoundListResult {
-  data: LostFoundReport[]
-  total: number
-  page: number
-  pageSize: number
-}
+export type LostFoundListResult = PaginatedResult<LostFoundReport>

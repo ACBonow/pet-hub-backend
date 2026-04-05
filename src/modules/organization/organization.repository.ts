@@ -6,6 +6,7 @@
 
 import { prisma } from '../../shared/config/database'
 import type { Prisma } from '@prisma/client'
+import { mapOrg, mapMember, ORG_INCLUDE } from './organization.mapper'
 import type {
   OrgRole,
   OrganizationCreateInput,
@@ -34,45 +35,7 @@ export interface IOrganizationRepository {
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
 }
 
-function mapOrg(org: any): OrganizationRecord {
-  return {
-    id: org.id,
-    name: org.name,
-    type: org.type as 'COMPANY' | 'NGO',
-    cnpj: org.cnpj ?? null,
-    description: org.description ?? null,
-    phone: org.phone ?? null,
-    email: org.email ?? null,
-    website: org.website ?? null,
-    instagram: org.instagram ?? null,
-    photoUrl: org.photoUrl ?? null,
-    addressStreet: org.addressStreet ?? null,
-    addressNeighborhood: org.addressNeighborhood ?? null,
-    addressNumber: org.addressNumber ?? null,
-    addressCep: org.addressCep ?? null,
-    addressCity: org.addressCity ?? null,
-    addressState: org.addressState ?? null,
-    createdAt: org.createdAt,
-    updatedAt: org.updatedAt,
-    responsiblePersons: (org.responsiblePersons ?? []).map((p: any) => ({
-      organizationId: p.organizationId,
-      personId: p.personId,
-      role: p.role as OrgRole ?? 'MEMBER',
-      assignedAt: p.assignedAt,
-    })),
-  }
-}
-
-function mapMember(m: any): OrganizationPersonRecord {
-  return {
-    organizationId: m.organizationId,
-    personId: m.personId,
-    role: m.role as OrgRole,
-    assignedAt: m.assignedAt,
-  }
-}
-
-const include = { responsiblePersons: true }
+const include = ORG_INCLUDE
 
 export class PrismaOrganizationRepository implements IOrganizationRepository {
   async create(data: OrganizationCreateInput): Promise<OrganizationRecord> {
@@ -121,7 +84,7 @@ export class PrismaOrganizationRepository implements IOrganizationRepository {
       where: { personId },
       include: { organization: { include } },
     })
-    return memberships.map((m: any) => mapOrg(m.organization))
+    return memberships.map((m) => mapOrg(m.organization))
   }
 
   async update(id: string, data: OrganizationUpdateInput): Promise<OrganizationRecord> {

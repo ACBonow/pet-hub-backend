@@ -106,9 +106,7 @@ describe('ServicesDirectory routes', () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.findAll).mockResolvedValueOnce({
         data: [MOCK_LISTING as any],
-        total: 1,
-        page: 1,
-        pageSize: 20,
+        meta: { total: 1, page: 1, pageSize: 20, totalPages: 1 },
       })
 
       const response = await app.inject({
@@ -127,9 +125,7 @@ describe('ServicesDirectory routes', () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.findAll).mockResolvedValueOnce({
         data: [],
-        total: 0,
-        page: 1,
-        pageSize: 20,
+        meta: { total: 0, page: 1, pageSize: 20, totalPages: 1 },
       })
 
       const response = await app.inject({
@@ -145,9 +141,7 @@ describe('ServicesDirectory routes', () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.findAll).mockResolvedValueOnce({
         data: [MOCK_LISTING as any],
-        total: 1,
-        page: 1,
-        pageSize: 20,
+        meta: { total: 1, page: 1, pageSize: 20, totalPages: 1 },
       })
 
       const response = await app.inject({
@@ -161,7 +155,7 @@ describe('ServicesDirectory routes', () => {
 
     it('filters by organizationId when provided', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], total: 0, page: 1, pageSize: 20 })
+      jest.mocked(service.findAll).mockResolvedValueOnce({ data: [], meta: { total: 0, page: 1, pageSize: 20, totalPages: 1 } })
       const VALID_ORG_UUID = 'c1d2e3f4-a5b6-7890-abcd-ef1234567892'
 
       const response = await app.inject({

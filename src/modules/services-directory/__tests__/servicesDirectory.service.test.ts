@@ -9,12 +9,15 @@ import type { ServiceListing, ServiceTypeRecord, PaginatedServiceListings } from
 import { ServicesDirectoryService } from '../servicesDirectory.service'
 import type { IPersonRepository } from '../../person'
 import type { IOrganizationRepository } from '../../organization'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
 
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn().mockResolvedValue('https://cdn.example.com/service-images/svc-1/123.jpg'),
-  deleteFile: jest.fn().mockResolvedValue(undefined),
-  extractPathFromUrl: jest.fn().mockReturnValue('svc-1/old.jpg'),
-}))
+const PHOTO_URL = 'https://cdn.example.com/service-images/svc-1/123.jpg'
+
+const makeFileStorage = (overrides: Partial<jest.Mocked<IFileStorage>> = {}): jest.Mocked<IFileStorage> => ({
+  upload: jest.fn().mockResolvedValue(PHOTO_URL),
+  delete: jest.fn().mockResolvedValue(undefined),
+  ...overrides,
+})
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -195,7 +198,10 @@ describe('ServicesDirectoryService', () => {
       const result = await service.findAll({ type: 'CLINIC', page: 1, pageSize: 20 })
 
       expect(result.data).toHaveLength(1)
-      expect(result.total).toBe(1)
+      expect(result.meta.total).toBe(1)
+      expect(result.meta.page).toBe(1)
+      expect(result.meta.pageSize).toBe(20)
+      expect(result.meta.totalPages).toBe(1)
       expect(repo.findAll).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'CLINIC' }),
       )
@@ -330,7 +336,7 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
 
   it('should upload photo for creator of personal service', async () => {
     const personalService = { ...MOCK_LISTING, organizationId: null, createdByUserId: 'user-1', photoUrl: null }
-    const updatedService = { ...personalService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+    const updatedService = { ...personalService, photoUrl: PHOTO_URL }
     const repo = makeRepo({
       findById: jest.fn()
         .mockResolvedValueOnce(personalService)
@@ -338,18 +344,18 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
       updatePhotoUrl: jest.fn().mockResolvedValueOnce(undefined),
     })
     const typeRepo = makeTypeRepo()
-    const service = new ServicesDirectoryService(repo, typeRepo)
+    const fileStorage = makeFileStorage()
+    const service = new ServicesDirectoryService(repo, typeRepo, undefined, undefined, fileStorage)
 
     const result = await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
 
-    expect(result.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
+    expect(result.photoUrl).toBe(PHOTO_URL)
     expect(repo.updatePhotoUrl).toHaveBeenCalledWith('svc-1', expect.any(String))
   })
 
   it('should delete old photo before uploading new one for personal service', async () => {
     const personalService = { ...MOCK_LISTING, organizationId: null, createdByUserId: 'user-1', photoUrl: 'https://cdn.example.com/service-images/svc-1/old.jpg' }
-    const updatedService = { ...personalService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
-    const { deleteFile } = require('../../../shared/utils/storage')
+    const updatedService = { ...personalService, photoUrl: PHOTO_URL }
     const repo = makeRepo({
       findById: jest.fn()
         .mockResolvedValueOnce(personalService)
@@ -357,11 +363,12 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
       updatePhotoUrl: jest.fn().mockResolvedValueOnce(undefined),
     })
     const typeRepo = makeTypeRepo()
-    const service = new ServicesDirectoryService(repo, typeRepo)
+    const fileStorage = makeFileStorage()
+    const service = new ServicesDirectoryService(repo, typeRepo, undefined, undefined, fileStorage)
 
     await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
 
-    expect(deleteFile).toHaveBeenCalledWith('service-images', expect.any(String))
+    expect(fileStorage.delete).toHaveBeenCalledWith('service-images', expect.any(String))
   })
 
   it('should throw INSUFFICIENT_PERMISSION when org service user is MEMBER', async () => {
@@ -380,7 +387,7 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
 
   it('should upload photo for OWNER of org service', async () => {
     const orgService = { ...MOCK_LISTING, organizationId: 'org-1', createdByUserId: 'user-1', photoUrl: null }
-    const updatedService = { ...orgService, photoUrl: 'https://cdn.example.com/service-images/svc-1/123.jpg' }
+    const updatedService = { ...orgService, photoUrl: PHOTO_URL }
     const repo = makeRepo({
       findById: jest.fn()
         .mockResolvedValueOnce(orgService)
@@ -390,11 +397,12 @@ describe('ServicesDirectoryService.uploadPhoto', () => {
     const typeRepo = makeTypeRepo()
     const personRepo = makePersonRepo({ findByUserId: jest.fn().mockResolvedValueOnce(MOCK_PERSON) })
     const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValueOnce('OWNER') })
-    const service = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo)
+    const fileStorage = makeFileStorage()
+    const service = new ServicesDirectoryService(repo, typeRepo, personRepo, orgRepo, fileStorage)
 
     const result = await service.uploadPhoto('svc-1', 'user-1', fakeBuffer, fakeMime)
 
-    expect(result.photoUrl).toBe('https://cdn.example.com/service-images/svc-1/123.jpg')
+    expect(result.photoUrl).toBe(PHOTO_URL)
   })
 })
 

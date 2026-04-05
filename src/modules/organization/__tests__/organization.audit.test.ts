@@ -7,16 +7,19 @@
 
 import type { IOrganizationRepository } from '../organization.repository'
 import type { IPersonRepository } from '../../person'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
 import type { OrganizationRecord } from '../organization.types'
 import { OrganizationService } from '../organization.service'
 import * as loggerModule from '../../../shared/utils/logger'
-import * as storage from '../../../shared/utils/storage'
 
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn().mockResolvedValue('https://cdn.example.com/org-images/org-1/123.jpg'),
-  deleteFile: jest.fn().mockResolvedValue(undefined),
-  extractPathFromUrl: jest.requireActual('../../../shared/utils/storage').extractPathFromUrl,
+jest.mock('../../../shared/utils/org-permission', () => ({
+  hasOrgPermission: jest.fn().mockResolvedValue(true),
 }))
+
+const makeFileStorage = (): jest.Mocked<IFileStorage> => ({
+  upload: jest.fn().mockResolvedValue('https://cdn.example.com/org-images/org-1/123.jpg'),
+  delete: jest.fn().mockResolvedValue(undefined),
+})
 
 const loggerInfoSpy = jest.spyOn(loggerModule.logger, 'info').mockImplementation(() => {})
 
@@ -107,7 +110,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.created after successful creation', async () => {
       const orgRepo = makeOrgRepo()
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.create({ name: 'Test Org', type: 'NGO' }, 'user-1')
 
@@ -122,7 +125,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.updated after successful update', async () => {
       const orgRepo = makeOrgRepo()
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.update('org-1', { name: 'New Name' }, 'user-1')
 
@@ -137,7 +140,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.deleted after successful deletion', async () => {
       const orgRepo = makeOrgRepo()
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.delete('org-1', 'user-1')
 
@@ -152,7 +155,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.member.added after successful member addition', async () => {
       const orgRepo = makeOrgRepo({ hasPerson: jest.fn().mockResolvedValue(false) })
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.addMember('org-1', '11144477735', 'MEMBER', 'user-1')
 
@@ -172,7 +175,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.member.removed after successful member removal', async () => {
       const orgRepo = makeOrgRepo({ getRole: jest.fn().mockResolvedValue('MEMBER') })
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.removePerson('org-1', 'person-2')
 
@@ -191,7 +194,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.member.role.changed after successful role change', async () => {
       const orgRepo = makeOrgRepo({ hasPerson: jest.fn().mockResolvedValue(true) })
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.changeRole('org-1', 'person-2', 'MANAGER')
 
@@ -210,7 +213,7 @@ describe('OrganizationService — audit log', () => {
     it('logs org.photo.updated after successful photo upload', async () => {
       const orgRepo = makeOrgRepo()
       const personRepo = makePersonRepo()
-      const service = new OrganizationService(orgRepo, personRepo)
+      const service = new OrganizationService(orgRepo, personRepo, makeFileStorage())
 
       await service.uploadPhoto('org-1', 'user-1', Buffer.from([0xff, 0xd8, 0xff]), 'image/jpeg')
 

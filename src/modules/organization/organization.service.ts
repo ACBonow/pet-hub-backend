@@ -8,7 +8,9 @@
 import { sanitizeCnpj, validateCnpj } from '../../shared/validators/cnpj.validator'
 import { HttpError } from '../../shared/errors/HttpError'
 import { AppError } from '../../shared/errors/AppError'
-import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
+import type { IFileStorage } from '../../shared/storage/IFileStorage'
+import { hasOrgPermission } from '../../shared/utils/org-permission'
 import { logger } from '../../shared/utils/logger'
 import type { IOrganizationRepository } from './organization.repository'
 import type { IPersonRepository } from '../person'
@@ -21,12 +23,11 @@ import type {
   OrganizationUpdateInput,
 } from './organization.types'
 
-const ALLOWED_ROLES_FOR_PHOTO: OrgRole[] = ['OWNER', 'MANAGER']
-
 export class OrganizationService {
   constructor(
     private repository: IOrganizationRepository,
     private personRepository: IPersonRepository,
+    private fileStorage: IFileStorage,
   ) {}
 
   async create(input: OrganizationCreateInput, creatorUserId: string): Promise<OrganizationRecord> {
@@ -93,9 +94,7 @@ export class OrganizationService {
       throw HttpError.notFound('Organização')
     }
 
-    const person = await this.personRepository.findByUserId(userId)
-    const role = person ? await this.repository.getRole(id, person.id) : null
-    if (role !== 'OWNER') {
+    if (!await hasOrgPermission(userId, id, 'OWNER')) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode editar a organização.')
     }
 
@@ -110,9 +109,7 @@ export class OrganizationService {
       throw HttpError.notFound('Organização')
     }
 
-    const person = await this.personRepository.findByUserId(userId)
-    const role = person ? await this.repository.getRole(id, person.id) : null
-    if (role !== 'OWNER') {
+    if (!await hasOrgPermission(userId, id, 'OWNER')) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode excluir a organização.')
     }
 
@@ -207,10 +204,7 @@ export class OrganizationService {
       throw HttpError.notFound('Organização')
     }
 
-    // Verify requester is OWNER
-    const requester = await this.personRepository.findByUserId(requestingUserId)
-    const requesterRole = requester ? await this.repository.getRole(orgId, requester.id) : null
-    if (requesterRole !== 'OWNER') {
+    if (!await hasOrgPermission(requestingUserId, orgId, 'OWNER')) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o OWNER pode adicionar membros.')
     }
 
@@ -236,21 +230,18 @@ export class OrganizationService {
       throw HttpError.notFound('Organização')
     }
 
-    const person = await this.personRepository.findByUserId(userId)
-    const role = person ? await this.repository.getRole(orgId, person.id) : null
-
-    if (!role || !ALLOWED_ROLES_FOR_PHOTO.includes(role)) {
+    if (!await hasOrgPermission(userId, orgId, 'MANAGER')) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER podem atualizar a foto da organização.')
     }
 
     if (org.photoUrl) {
       const oldPath = extractPathFromUrl(org.photoUrl, 'org-images')
-      await deleteFile('org-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('org-images', oldPath).catch(() => {})
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const path = `${orgId}/${Date.now()}.${ext}`
-    const photoUrl = await uploadFile('org-images', path, file, mimeType)
+    const photoUrl = await this.fileStorage.upload('org-images', path, file, mimeType)
 
     await this.repository.updatePhotoUrl(orgId, photoUrl)
 

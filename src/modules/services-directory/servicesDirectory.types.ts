@@ -4,6 +4,8 @@
  * @description TypeScript interfaces for the services-directory module.
  */
 
+import type { PaginatedResult } from '../../shared/types/pagination'
+
 export interface ServiceTypeRecord {
   id: string
   code: string
@@ -99,9 +101,12 @@ export interface ListServicesFilter {
   pageSize?: number
 }
 
+/** Internal repo return type — use PaginatedResult<ServiceListing> at the service layer */
 export interface PaginatedServiceListings {
   data: ServiceListing[]
   total: number
   page: number
   pageSize: number
 }
+
+export type ServiceListingPage = PaginatedResult<ServiceListing>

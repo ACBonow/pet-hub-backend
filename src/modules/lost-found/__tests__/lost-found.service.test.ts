@@ -8,15 +8,10 @@ import type { ILostFoundRepository } from '../lost-found.repository'
 import type { IPetRepository } from '../../pet'
 import type { IPersonRepository } from '../../person'
 import type { IOrganizationRepository } from '../../organization'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
+import { extractPathFromUrl } from '../../../shared/storage/IFileStorage'
 import type { LostFoundReport } from '../lost-found.types'
 import { LostFoundService } from '../lost-found.service'
-
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn(),
-  deleteFile: jest.fn(),
-  extractPathFromUrl: jest.fn(),
-}))
-import * as storage from '../../../shared/utils/storage'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -171,13 +166,18 @@ describe('LostFoundService', () => {
   let petRepo: jest.Mocked<IPetRepository>
   let personRepo: jest.Mocked<IPersonRepository>
   let orgRepo: jest.Mocked<IOrganizationRepository>
+  let mockFileStorage: jest.Mocked<IFileStorage>
 
   beforeEach(() => {
     lostFoundRepo = makeLostFoundRepo()
     petRepo = makePetRepo()
     personRepo = makePersonRepo()
     orgRepo = makeOrgRepo()
-    service = new LostFoundService(lostFoundRepo, petRepo, personRepo, orgRepo)
+    mockFileStorage = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+    }
+    service = new LostFoundService(lostFoundRepo, petRepo, personRepo, orgRepo, mockFileStorage)
   })
 
   // ── createForUser ─────────────────────────────────────────────────────────
@@ -362,9 +362,10 @@ describe('LostFoundService', () => {
       const result = await service.findAll({ type: 'LOST', status: 'OPEN', page: 1, pageSize: 20 })
 
       expect(result.data).toHaveLength(1)
-      expect(result.total).toBe(1)
-      expect(result.page).toBe(1)
-      expect(result.pageSize).toBe(20)
+      expect(result.meta.total).toBe(1)
+      expect(result.meta.page).toBe(1)
+      expect(result.meta.pageSize).toBe(20)
+      expect(result.meta.totalPages).toBe(1)
     })
 
     it('should apply default pagination when not provided', async () => {
@@ -372,8 +373,8 @@ describe('LostFoundService', () => {
 
       const result = await service.findAll({})
 
-      expect(result.page).toBe(1)
-      expect(result.pageSize).toBe(20)
+      expect(result.meta.page).toBe(1)
+      expect(result.meta.pageSize).toBe(20)
       expect(lostFoundRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20 }))
     })
 
@@ -611,12 +612,12 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(MOCK_REPORT)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       const result = await service.uploadPhoto('report-1', FILE, MIME)
 
-      expect(storage.uploadFile).toHaveBeenCalledWith(
+      expect(mockFileStorage.upload).toHaveBeenCalledWith(
         'lost-found-images',
         expect.stringMatching(/^report-1\/\d+\.jpg$/),
         FILE,
@@ -631,15 +632,16 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(reportWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
-      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('report-1/old.jpg')
-      ;(storage.deleteFile as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.delete.mockResolvedValueOnce(undefined)
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await service.uploadPhoto('report-1', FILE, MIME)
 
-      expect(storage.extractPathFromUrl).toHaveBeenCalledWith(reportWithPhoto.photoUrl, 'lost-found-images')
-      expect(storage.deleteFile).toHaveBeenCalledWith('lost-found-images', 'report-1/old.jpg')
+      expect(mockFileStorage.delete).toHaveBeenCalledWith(
+        'lost-found-images',
+        extractPathFromUrl(reportWithPhoto.photoUrl, 'lost-found-images'),
+      )
     })
 
     it('should continue upload even if old photo deletion fails', async () => {
@@ -647,13 +649,12 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(reportWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
-      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('report-1/old.jpg')
-      ;(storage.deleteFile as jest.Mock).mockRejectedValueOnce(new Error('Storage error'))
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.delete.mockRejectedValueOnce(new Error('Storage error'))
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await expect(service.uploadPhoto('report-1', FILE, MIME)).resolves.toBeDefined()
-      expect(storage.uploadFile).toHaveBeenCalled()
+      expect(mockFileStorage.upload).toHaveBeenCalled()
     })
   })
 })

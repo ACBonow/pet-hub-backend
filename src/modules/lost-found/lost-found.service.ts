@@ -6,7 +6,9 @@
 
 import { HttpError } from '../../shared/errors/HttpError'
 import { AppError } from '../../shared/errors/AppError'
-import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { buildPaginationMeta } from '../../shared/types/pagination'
+import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
+import type { IFileStorage } from '../../shared/storage/IFileStorage'
 import type { ILostFoundRepository } from './lost-found.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
@@ -26,6 +28,7 @@ export class LostFoundService {
     private petRepository: IPetRepository,
     private personRepository: IPersonRepository,
     private orgRepository: IOrganizationRepository,
+    private fileStorage: IFileStorage,
   ) {}
 
   async createForUser(userId: string, input: CreateLostFoundBody): Promise<LostFoundReport> {
@@ -86,7 +89,7 @@ export class LostFoundService {
 
     const { reports, total } = await this.repository.findAll({ ...filters, page, pageSize })
 
-    return { data: reports, total, page, pageSize }
+    return { data: reports, meta: buildPaginationMeta(total, page, pageSize) }
   }
 
   async findById(id: string): Promise<LostFoundReport> {
@@ -138,12 +141,12 @@ export class LostFoundService {
 
     if (report.photoUrl) {
       const oldPath = extractPathFromUrl(report.photoUrl, 'lost-found-images')
-      await deleteFile('lost-found-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('lost-found-images', oldPath).catch(() => {})
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const path = `${reportId}/${Date.now()}.${ext}`
-    const photoUrl = await uploadFile('lost-found-images', path, file, mimeType)
+    const photoUrl = await this.fileStorage.upload('lost-found-images', path, file, mimeType)
 
     await this.repository.updatePhotoUrl(reportId, photoUrl)
 

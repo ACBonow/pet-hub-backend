@@ -7,15 +7,10 @@
 import type { IPetRepository } from '../pet.repository'
 import type { IPersonRepository } from '../../person'
 import type { IOrganizationRepository } from '../../organization'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
+import { extractPathFromUrl } from '../../../shared/storage/IFileStorage'
 import type { PetRecord, TutorshipRecord, CoTutorRecord } from '../pet.types'
 import { PetService } from '../pet.service'
-
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn(),
-  deleteFile: jest.fn(),
-  extractPathFromUrl: jest.fn(),
-}))
-import * as storage from '../../../shared/utils/storage'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -135,12 +130,17 @@ describe('PetService', () => {
   let petRepo: jest.Mocked<IPetRepository>
   let personRepo: jest.Mocked<IPersonRepository>
   let orgRepo: jest.Mocked<IOrganizationRepository>
+  let mockFileStorage: jest.Mocked<IFileStorage>
 
   beforeEach(() => {
     petRepo = makePetRepo()
     personRepo = makePersonRepo()
     orgRepo = makeOrgRepo()
-    service = new PetService(petRepo, personRepo, orgRepo)
+    mockFileStorage = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+    }
+    service = new PetService(petRepo, personRepo, orgRepo, mockFileStorage)
   })
 
   // ── create ────────────────────────────────────────────────────────────────
@@ -651,12 +651,12 @@ describe('PetService', () => {
       petRepo.findById
         .mockResolvedValueOnce(MOCK_PET)
         .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       const result = await service.uploadPhoto('pet-1', FILE, MIME)
 
-      expect(storage.uploadFile).toHaveBeenCalledWith(
+      expect(mockFileStorage.upload).toHaveBeenCalledWith(
         'pet-images',
         expect.stringMatching(/^pet-1\/\d+\.jpg$/),
         FILE,
@@ -671,15 +671,16 @@ describe('PetService', () => {
       petRepo.findById
         .mockResolvedValueOnce(petWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
-      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('pet-1/old.jpg')
-      ;(storage.deleteFile as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.delete.mockResolvedValueOnce(undefined)
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await service.uploadPhoto('pet-1', FILE, MIME)
 
-      expect(storage.extractPathFromUrl).toHaveBeenCalledWith(petWithPhoto.photoUrl, 'pet-images')
-      expect(storage.deleteFile).toHaveBeenCalledWith('pet-images', 'pet-1/old.jpg')
+      expect(mockFileStorage.delete).toHaveBeenCalledWith(
+        'pet-images',
+        extractPathFromUrl(petWithPhoto.photoUrl, 'pet-images'),
+      )
     })
 
     it('should continue upload even if old photo deletion fails', async () => {
@@ -687,25 +688,24 @@ describe('PetService', () => {
       petRepo.findById
         .mockResolvedValueOnce(petWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
-      ;(storage.extractPathFromUrl as jest.Mock).mockReturnValueOnce('pet-1/old.jpg')
-      ;(storage.deleteFile as jest.Mock).mockRejectedValueOnce(new Error('Storage error'))
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.delete.mockRejectedValueOnce(new Error('Storage error'))
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await expect(service.uploadPhoto('pet-1', FILE, MIME)).resolves.toBeDefined()
-      expect(storage.uploadFile).toHaveBeenCalled()
+      expect(mockFileStorage.upload).toHaveBeenCalled()
     })
 
     it('should use correct extension for png files', async () => {
       petRepo.findById
         .mockResolvedValueOnce(MOCK_PET)
         .mockResolvedValueOnce({ ...MOCK_PET, photoUrl: PHOTO_URL })
-      ;(storage.uploadFile as jest.Mock).mockResolvedValueOnce(PHOTO_URL)
+      mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       petRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
       await service.uploadPhoto('pet-1', FILE, 'image/png')
 
-      expect(storage.uploadFile).toHaveBeenCalledWith(
+      expect(mockFileStorage.upload).toHaveBeenCalledWith(
         'pet-images',
         expect.stringMatching(/^pet-1\/\d+\.png$/),
         FILE,

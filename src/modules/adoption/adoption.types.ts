@@ -4,6 +4,8 @@
  * @description TypeScript interfaces for the adoption module.
  */
 
+import type { PaginatedResult } from '../../shared/types/pagination'
+
 export type AdoptionStatus = 'AVAILABLE' | 'RESERVED' | 'ADOPTED'
 
 export type AdoptionListerType = 'PERSON' | 'ORGANIZATION'
@@ -62,9 +64,4 @@ export interface AdoptionListFilters {
   pageSize?: number
 }
 
-export interface AdoptionListResult {
-  data: AdoptionListingRecord[]
-  total: number
-  page: number
-  pageSize: number
-}
+export type AdoptionListResult = PaginatedResult<AdoptionListingRecord>

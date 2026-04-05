@@ -37,11 +37,7 @@ export class AdoptionController {
       })
     }
     const result = await this.service.findAll(parsed.data)
-    return reply.status(200).send({
-      success: true,
-      data: result.data,
-      meta: { total: result.total, page: result.page, pageSize: result.pageSize },
-    })
+    return reply.status(200).send({ success: true, data: result.data, meta: result.meta })
   }
 
   async findById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {

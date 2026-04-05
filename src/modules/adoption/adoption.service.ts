@@ -6,6 +6,7 @@
 
 import { HttpError } from '../../shared/errors/HttpError'
 import { AppError } from '../../shared/errors/AppError'
+import { buildPaginationMeta } from '../../shared/types/pagination'
 import type { IAdoptionRepository } from './adoption.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
@@ -107,7 +108,7 @@ export class AdoptionService {
 
     const { listings, total } = await this.repository.findAll({ ...filters, page, pageSize })
 
-    return { data: listings, total, page, pageSize }
+    return { data: listings, meta: buildPaginationMeta(total, page, pageSize) }
   }
 
   async findById(id: string): Promise<AdoptionListingRecord> {

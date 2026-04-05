@@ -6,7 +6,8 @@
  */
 
 import { HttpError } from '../../shared/errors/HttpError'
-import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
+import type { IFileStorage } from '../../shared/storage/IFileStorage'
 import type { IPetHealthRepository } from './petHealth.repository'
 import type { IPetRepository } from '../pet'
 import type { IPersonRepository } from '../person'
@@ -22,6 +23,7 @@ export class PetHealthService {
     private repository: IPetHealthRepository,
     private petRepository: IPetRepository,
     private personRepository: IPersonRepository,
+    private fileStorage: IFileStorage,
   ) {}
 
   private async checkTutorAccess(petId: string, userId: string): Promise<void> {
@@ -75,7 +77,7 @@ export class PetHealthService {
 
     const ext = input.filename.split('.').pop() ?? 'bin'
     const path = `pets/${petId}/${Date.now()}-${input.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.${ext}`
-    const fileUrl = await uploadFile('exam-files', path, input.file, input.contentType)
+    const fileUrl = await this.fileStorage.upload('exam-files', path, input.file, input.contentType)
 
     return this.repository.createExamFile({
       petId,
@@ -99,7 +101,7 @@ export class PetHealthService {
     if (!exam) throw HttpError.notFound('Arquivo de exame')
 
     const storagePath = extractPathFromUrl(exam.fileUrl, 'exam-files')
-    await deleteFile('exam-files', storagePath)
+    await this.fileStorage.delete('exam-files', storagePath)
     await this.repository.deleteExamFile(examId)
   }
 }

@@ -20,6 +20,7 @@ import { PrismaAdoptionRepository, registerAdoptionRoutes, AdoptionService } fro
 import { PrismaLostFoundRepository, registerLostFoundRoutes, LostFoundService } from './modules/lost-found'
 import { PrismaPetHealthRepository, registerPetHealthRoutes, PetHealthService } from './modules/pet-health'
 import { PrismaServicesDirectoryRepository, PrismaServiceTypeRepository, registerServicesDirectoryRoutes, ServicesDirectoryService } from './modules/services-directory'
+import { SupabaseFileStorage } from './shared/storage/SupabaseFileStorage'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -45,6 +46,9 @@ export function buildApp(): FastifyInstance {
   // Health check
   app.get('/health', async () => ({ status: 'ok' }))
 
+  // Shared storage implementation
+  const fileStorage = new SupabaseFileStorage()
+
   // Person repository (shared — also injected into AuthService)
   const personRepository = new PrismaPersonRepository()
 
@@ -57,12 +61,12 @@ export function buildApp(): FastifyInstance {
   registerPersonRoutes(app, personService)
 
   // Organization routes
-  const orgService = new OrganizationService(new PrismaOrganizationRepository(), personRepository)
+  const orgService = new OrganizationService(new PrismaOrganizationRepository(), personRepository, fileStorage)
   registerOrganizationRoutes(app, orgService)
 
   // Pet routes
   const petRepository = new PrismaPetRepository()
-  const petService = new PetService(petRepository, personRepository, new PrismaOrganizationRepository())
+  const petService = new PetService(petRepository, personRepository, new PrismaOrganizationRepository(), fileStorage)
   registerPetRoutes(app, petService)
 
   // Adoption routes
@@ -75,7 +79,7 @@ export function buildApp(): FastifyInstance {
   registerAdoptionRoutes(app, adoptionService)
 
   // Lost & Found routes
-  const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository, new PrismaOrganizationRepository())
+  const lostFoundService = new LostFoundService(new PrismaLostFoundRepository(), petRepository, personRepository, new PrismaOrganizationRepository(), fileStorage)
   registerLostFoundRoutes(app, lostFoundService)
 
   // Pet Health routes
@@ -83,6 +87,7 @@ export function buildApp(): FastifyInstance {
     new PrismaPetHealthRepository(),
     petRepository,
     personRepository,
+    fileStorage,
   )
   registerPetHealthRoutes(app, petHealthService)
 
@@ -92,6 +97,7 @@ export function buildApp(): FastifyInstance {
     new PrismaServiceTypeRepository(),
     personRepository,
     new PrismaOrganizationRepository(),
+    fileStorage,
   )
   registerServicesDirectoryRoutes(app, servicesDirectoryService)
 

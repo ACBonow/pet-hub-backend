@@ -6,14 +6,16 @@
 
 import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
-import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { buildPaginationMeta } from '../../shared/types/pagination'
+import type { PaginatedResult } from '../../shared/types/pagination'
+import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
+import type { IFileStorage } from '../../shared/storage/IFileStorage'
 import type { IServicesDirectoryRepository, IServiceTypeRepository } from './servicesDirectory.repository'
 import type { IPersonRepository } from '../person'
 import type { IOrganizationRepository } from '../organization'
 import type {
   CreateServiceListingInput,
   ListServicesFilter,
-  PaginatedServiceListings,
   ServiceListing,
   ServiceTypeRecord,
   UpdateServiceListingInput,
@@ -27,6 +29,7 @@ export class ServicesDirectoryService {
     private typeRepository: IServiceTypeRepository,
     private personRepository?: IPersonRepository,
     private orgRepository?: IOrganizationRepository,
+    private fileStorage?: IFileStorage,
   ) {}
 
   async listTypes(): Promise<ServiceTypeRecord[]> {
@@ -52,8 +55,9 @@ export class ServicesDirectoryService {
     return this.repository.create({ ...input, serviceTypeId: serviceType.id, createdByUserId: userId })
   }
 
-  async findAll(filter: ListServicesFilter = {}): Promise<PaginatedServiceListings> {
-    return this.repository.findAll(filter)
+  async findAll(filter: ListServicesFilter = {}): Promise<PaginatedResult<ServiceListing>> {
+    const raw = await this.repository.findAll(filter)
+    return { data: raw.data, meta: buildPaginationMeta(raw.total, raw.page, raw.pageSize) }
   }
 
   async findById(id: string): Promise<ServiceListing> {
@@ -129,12 +133,12 @@ export class ServicesDirectoryService {
 
     if (service.photoUrl) {
       const oldPath = extractPathFromUrl(service.photoUrl, 'service-images')
-      await deleteFile('service-images', oldPath).catch(() => {})
+      await this.fileStorage!.delete('service-images', oldPath).catch(() => {})
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const path = `${serviceId}/${Date.now()}.${ext}`
-    const photoUrl = await uploadFile('service-images', path, file, mimeType)
+    const photoUrl = await this.fileStorage!.upload('service-images', path, file, mimeType)
 
     await this.repository.updatePhotoUrl(serviceId, photoUrl)
 

@@ -7,15 +7,10 @@
 import type { IPetHealthRepository } from '../petHealth.repository'
 import type { IPetRepository } from '../../pet'
 import type { IPersonRepository } from '../../person'
+import type { IFileStorage } from '../../../shared/storage/IFileStorage'
+import { extractPathFromUrl } from '../../../shared/storage/IFileStorage'
 import type { VaccinationRecord, ExamFileRecord } from '../petHealth.types'
 import { PetHealthService } from '../petHealth.service'
-import * as storage from '../../../shared/utils/storage'
-
-jest.mock('../../../shared/utils/storage', () => ({
-  uploadFile: jest.fn(),
-  deleteFile: jest.fn(),
-  extractPathFromUrl: jest.requireActual('../../../shared/utils/storage').extractPathFromUrl,
-}))
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -138,13 +133,18 @@ describe('PetHealthService', () => {
   let healthRepo: jest.Mocked<IPetHealthRepository>
   let petRepo: jest.Mocked<IPetRepository>
   let personRepo: jest.Mocked<IPersonRepository>
+  let mockFileStorage: jest.Mocked<IFileStorage>
 
   beforeEach(() => {
     jest.clearAllMocks()
     healthRepo = makeHealthRepo()
     petRepo = makePetRepo()
     personRepo = makePersonRepo()
-    service = new PetHealthService(healthRepo, petRepo, personRepo)
+    mockFileStorage = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+    }
+    service = new PetHealthService(healthRepo, petRepo, personRepo, mockFileStorage)
   })
 
   // ── addVaccination ────────────────────────────────────────────────────────
@@ -268,7 +268,7 @@ describe('PetHealthService', () => {
     it('should upload file to storage and return exam record', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
       personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
-      jest.mocked(storage.uploadFile).mockResolvedValueOnce(EXAM_FILE_URL)
+      mockFileStorage.upload.mockResolvedValueOnce(EXAM_FILE_URL)
       healthRepo.createExamFile.mockResolvedValueOnce(MOCK_EXAM)
 
       const result = await service.uploadExamFile('pet-1', 'user-1', {
@@ -280,7 +280,7 @@ describe('PetHealthService', () => {
       })
 
       expect(result.fileUrl).toBe(EXAM_FILE_URL)
-      expect(storage.uploadFile).toHaveBeenCalledWith(
+      expect(mockFileStorage.upload).toHaveBeenCalledWith(
         'exam-files',
         expect.any(String),
         expect.any(Buffer),
@@ -314,12 +314,15 @@ describe('PetHealthService', () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
       personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       healthRepo.findExamFile.mockResolvedValueOnce(MOCK_EXAM)
-      jest.mocked(storage.deleteFile).mockResolvedValueOnce(undefined)
+      mockFileStorage.delete.mockResolvedValueOnce(undefined)
       healthRepo.deleteExamFile.mockResolvedValueOnce(undefined)
 
       await service.deleteExamFile('pet-1', 'exam-1', 'user-1')
 
-      expect(storage.deleteFile).toHaveBeenCalledWith('exam-files', expect.any(String))
+      expect(mockFileStorage.delete).toHaveBeenCalledWith(
+        'exam-files',
+        extractPathFromUrl(MOCK_EXAM.fileUrl, 'exam-files'),
+      )
       expect(healthRepo.deleteExamFile).toHaveBeenCalledWith('exam-1')
     })
 

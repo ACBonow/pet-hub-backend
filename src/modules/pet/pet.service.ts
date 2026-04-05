@@ -6,7 +6,8 @@
 
 import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
-import { uploadFile, deleteFile, extractPathFromUrl } from '../../shared/utils/storage'
+import { extractPathFromUrl } from '../../shared/storage/IFileStorage'
+import type { IFileStorage } from '../../shared/storage/IFileStorage'
 import type { IPetRepository } from './pet.repository'
 import type { IPersonRepository } from '../person'
 import type { IOrganizationRepository } from '../organization'
@@ -26,6 +27,7 @@ export class PetService {
     private repository: IPetRepository,
     private personRepository: IPersonRepository,
     private orgRepository: IOrganizationRepository,
+    private fileStorage: IFileStorage,
   ) {}
 
   private async validateOrgTutor(orgTutorId: string): Promise<void> {
@@ -218,12 +220,12 @@ export class PetService {
 
     if (pet.photoUrl) {
       const oldPath = extractPathFromUrl(pet.photoUrl, 'pet-images')
-      await deleteFile('pet-images', oldPath).catch(() => {})
+      await this.fileStorage.delete('pet-images', oldPath).catch(() => {})
     }
 
     const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const path = `${petId}/${Date.now()}.${ext}`
-    const photoUrl = await uploadFile('pet-images', path, file, mimeType)
+    const photoUrl = await this.fileStorage.upload('pet-images', path, file, mimeType)
 
     await this.repository.updatePhotoUrl(petId, photoUrl)
 
