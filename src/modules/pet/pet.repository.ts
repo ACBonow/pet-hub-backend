@@ -6,7 +6,7 @@
 
 import { prisma } from '../../shared/config/database'
 import type { Prisma } from '@prisma/client'
-import { coTutorInclude, tutorshipInclude, mapTutorship, mapCoTutor, mapPet } from './pet.mapper'
+import { coTutorInclude, petListInclude, petDetailInclude, mapTutorship, mapCoTutor, mapPet } from './pet.mapper'
 import type {
   AddCoTutorRepoInput,
   CoTutorRecord,
@@ -16,6 +16,8 @@ import type {
   TransferTutorshipRepoInput,
   TutorshipRecord,
 } from './pet.types'
+import type { PaginatedResult, PaginationParams } from '../../shared/types/pagination'
+import { buildPaginationMeta } from '../../shared/types/pagination'
 
 export interface IPetRepository {
   create(data: PetCreateInput): Promise<PetRecord>
@@ -26,7 +28,7 @@ export interface IPetRepository {
   delete(id: string): Promise<void>
   updatePhotoUrl(id: string, photoUrl: string | null): Promise<void>
   transferTutorship(petId: string, data: TransferTutorshipRepoInput): Promise<TutorshipRecord>
-  getTutorshipHistory(petId: string): Promise<TutorshipRecord[]>
+  getTutorshipHistory(petId: string, params?: PaginationParams): Promise<PaginatedResult<TutorshipRecord>>
   findActiveTutorship(petId: string): Promise<TutorshipRecord | null>
   addCoTutor(petId: string, data: AddCoTutorRepoInput): Promise<CoTutorRecord>
   removeCoTutor(petId: string, coTutorId: string): Promise<void>
@@ -47,7 +49,7 @@ export class PrismaPetRepository implements IPetRepository {
           microchip: data.microchip ?? null,
           notes: data.notes ?? null,
         },
-        include: tutorshipInclude,
+        include: petListInclude,
       })
 
       const tutorship = await tx.tutorship.create({
@@ -66,7 +68,7 @@ export class PrismaPetRepository implements IPetRepository {
   }
 
   async findById(id: string): Promise<PetRecord | null> {
-    const pet = await prisma.pet.findFirst({ where: { id, deletedAt: null }, include: tutorshipInclude })
+    const pet = await prisma.pet.findFirst({ where: { id, deletedAt: null }, include: petDetailInclude })
     return pet ? mapPet(pet) : null
   }
 
@@ -76,7 +78,7 @@ export class PrismaPetRepository implements IPetRepository {
         deletedAt: null,
         tutorships: { some: { personTutorId: personId, active: true } },
       },
-      include: tutorshipInclude,
+      include: petListInclude,
     })
     return pets.map(mapPet)
   }
@@ -87,7 +89,7 @@ export class PrismaPetRepository implements IPetRepository {
         deletedAt: null,
         tutorships: { some: { orgTutorId: orgId, active: true } },
       },
-      include: tutorshipInclude,
+      include: petListInclude,
     })
     return pets.map(mapPet)
   }
@@ -105,7 +107,7 @@ export class PrismaPetRepository implements IPetRepository {
         microchip: data.microchip,
         notes: data.notes,
       },
-      include: tutorshipInclude,
+      include: petListInclude,
     })
     return mapPet(pet)
   }
@@ -141,12 +143,25 @@ export class PrismaPetRepository implements IPetRepository {
     })
   }
 
-  async getTutorshipHistory(petId: string): Promise<TutorshipRecord[]> {
-    const tutorships = await prisma.tutorship.findMany({
-      where: { petId },
-      orderBy: { startDate: 'desc' },
-    })
-    return tutorships.map(mapTutorship)
+  async getTutorshipHistory(petId: string, params?: PaginationParams): Promise<PaginatedResult<TutorshipRecord>> {
+    const page = params?.page ?? 1
+    const pageSize = params?.pageSize ?? 20
+    const skip = (page - 1) * pageSize
+
+    const [total, tutorships] = await Promise.all([
+      prisma.tutorship.count({ where: { petId } }),
+      prisma.tutorship.findMany({
+        where: { petId },
+        orderBy: { startDate: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+    ])
+
+    return {
+      data: tutorships.map(mapTutorship),
+      meta: buildPaginationMeta(total, page, pageSize),
+    }
   }
 
   async findActiveTutorship(petId: string): Promise<TutorshipRecord | null> {

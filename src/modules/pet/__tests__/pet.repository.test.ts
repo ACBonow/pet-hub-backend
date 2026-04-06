@@ -69,6 +69,15 @@ describe('PrismaPetRepository (soft-delete)', () => {
         }),
       )
     })
+
+    it('should include coTutors in findById (detail query)', async () => {
+      mockPet.findFirst.mockResolvedValueOnce(null)
+
+      await repo.findById('pet-1')
+
+      const call = (mockPet.findFirst as jest.Mock).mock.calls[0][0]
+      expect(call.include).toHaveProperty('coTutors')
+    })
   })
 
   describe('findByPersonId', () => {
@@ -83,6 +92,15 @@ describe('PrismaPetRepository (soft-delete)', () => {
         }),
       )
     })
+
+    it('should NOT include coTutors in findByPersonId (list query)', async () => {
+      mockPet.findMany.mockResolvedValueOnce([])
+
+      await repo.findByPersonId('person-1')
+
+      const call = (mockPet.findMany as jest.Mock).mock.calls[0][0]
+      expect(call.include).not.toHaveProperty('coTutors')
+    })
   })
 
   describe('findByOrgId', () => {
@@ -96,6 +114,15 @@ describe('PrismaPetRepository (soft-delete)', () => {
           where: expect.objectContaining({ deletedAt: null }),
         }),
       )
+    })
+
+    it('should NOT include coTutors in findByOrgId (list query)', async () => {
+      mockPet.findMany.mockResolvedValueOnce([])
+
+      await repo.findByOrgId('org-1')
+
+      const call = (mockPet.findMany as jest.Mock).mock.calls[0][0]
+      expect(call.include).not.toHaveProperty('coTutors')
     })
   })
 })

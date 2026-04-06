@@ -476,7 +476,7 @@ describe('Organization routes', () => {
   // ── POST /api/v1/organizations/:id/persons/:personId ─────────────────────
 
   describe('POST /api/v1/organizations/:id/persons/:personId', () => {
-    it('returns 200 when person is added successfully', async () => {
+    it('returns 201 when person is added successfully', async () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.addPerson).mockResolvedValueOnce(undefined)
 
@@ -486,7 +486,7 @@ describe('Organization routes', () => {
         headers: { authorization: `Bearer ${makeAuthToken()}` },
       })
 
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(201)
       const body = response.json()
       expect(body.success).toBe(true)
 

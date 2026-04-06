@@ -65,7 +65,7 @@ export class OrganizationController {
     reply: FastifyReply,
   ) {
     await this.service.addPerson(request.params.id, request.params.personId)
-    return reply.status(200).send({ success: true })
+    return reply.status(201).send({ success: true })
   }
 
   async removePerson(

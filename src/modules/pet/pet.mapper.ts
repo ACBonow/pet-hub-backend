@@ -12,13 +12,26 @@ export const coTutorInclude = {
   orgTutor: { select: { name: true } },
 } as const
 
-export const tutorshipInclude = {
+/** Used for list queries — omits coTutors to avoid N+1 overhead */
+export const petListInclude = {
+  tutorships: { where: { active: true }, take: 1 },
+} as const
+
+/** Used for detail queries (findById) — includes coTutors */
+export const petDetailInclude = {
   tutorships: { where: { active: true }, take: 1 },
   coTutors: { include: coTutorInclude },
 } as const
 
+/** @deprecated Use petListInclude or petDetailInclude */
+export const tutorshipInclude = petDetailInclude
+
 export type PrismaCoTutorWithName = Prisma.CoTutorGetPayload<{
   include: typeof coTutorInclude
+}>
+
+export type PrismaPetListItem = Prisma.PetGetPayload<{
+  include: typeof petListInclude
 }>
 
 export type PrismaPetWithRelations = Prisma.PetGetPayload<{
@@ -57,7 +70,11 @@ export function mapCoTutor(c: PrismaCoTutorWithName): CoTutorRecord {
   }
 }
 
-export function mapPet(pet: PrismaPetWithRelations): PetRecord {
+type PetMappable =
+  | PrismaPetWithRelations
+  | (PrismaPetListItem & { coTutors?: PrismaCoTutorWithName[] })
+
+export function mapPet(pet: PetMappable): PetRecord {
   return {
     id: pet.id,
     name: pet.name,
@@ -72,6 +89,6 @@ export function mapPet(pet: PrismaPetWithRelations): PetRecord {
     createdAt: pet.createdAt,
     updatedAt: pet.updatedAt,
     activeTutorship: pet.tutorships?.[0] ? mapTutorship(pet.tutorships[0]) : null,
-    coTutors: pet.coTutors.map(mapCoTutor),
+    coTutors: (pet as { coTutors?: PrismaCoTutorWithName[] }).coTutors?.map(mapCoTutor) ?? [],
   }
 }

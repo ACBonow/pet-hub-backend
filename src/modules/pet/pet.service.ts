@@ -22,6 +22,7 @@ import type {
   TransferTutorshipInput,
   TutorshipRecord,
 } from './pet.types'
+import type { PaginatedResult, PaginationParams } from '../../shared/types/pagination'
 
 export class PetService {
   constructor(
@@ -150,12 +151,12 @@ export class PetService {
     })
   }
 
-  async getTutorshipHistory(petId: string): Promise<TutorshipRecord[]> {
+  async getTutorshipHistory(petId: string, params?: PaginationParams): Promise<PaginatedResult<TutorshipRecord>> {
     const pet = await this.repository.findById(petId)
     if (!pet) {
       throw HttpError.notFound('Pet')
     }
-    return this.repository.getTutorshipHistory(petId)
+    return this.repository.getTutorshipHistory(petId, params)
   }
 
   async addCoTutor(petId: string, data: AddCoTutorInput): Promise<CoTutorRecord> {

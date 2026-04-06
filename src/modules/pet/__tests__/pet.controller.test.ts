@@ -457,7 +457,7 @@ describe('Pet routes', () => {
   // ── POST /api/v1/pets/:id/transfer-tutorship ──────────────────────────────
 
   describe('POST /api/v1/pets/:id/transfer-tutorship', () => {
-    it('returns 200 with new tutorship on transfer', async () => {
+    it('returns 201 with new tutorship on transfer', async () => {
       const { app, service } = await buildTestApp()
       jest.mocked(service.transferTutorship).mockResolvedValueOnce(MOCK_TUTORSHIP as any)
 
@@ -468,7 +468,7 @@ describe('Pet routes', () => {
         payload: { tutorType: 'PERSON', personCpf: '52998224725', tutorshipType: 'TUTOR' },
       })
 
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(201)
       const body = response.json()
       expect(body.success).toBe(true)
       expect(body.data).toHaveProperty('id')
@@ -523,9 +523,14 @@ describe('Pet routes', () => {
   // ── GET /api/v1/pets/:id/tutorship-history ────────────────────────────────
 
   describe('GET /api/v1/pets/:id/tutorship-history', () => {
-    it('returns 200 with tutorship history', async () => {
+    const MOCK_PAGINATED_HISTORY = {
+      data: [MOCK_TUTORSHIP],
+      meta: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }
+
+    it('returns 200 with paginated tutorship history', async () => {
       const { app, service } = await buildTestApp()
-      jest.mocked(service.getTutorshipHistory).mockResolvedValueOnce([MOCK_TUTORSHIP] as any)
+      jest.mocked(service.getTutorshipHistory).mockResolvedValueOnce(MOCK_PAGINATED_HISTORY as any)
 
       const response = await app.inject({
         method: 'GET',
@@ -537,6 +542,26 @@ describe('Pet routes', () => {
       const body = response.json()
       expect(body.success).toBe(true)
       expect(Array.isArray(body.data)).toBe(true)
+      expect(body.meta).toMatchObject({ page: 1, pageSize: 20, total: 1 })
+
+      await app.close()
+    })
+
+    it('passes page and pageSize query params to service', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.getTutorshipHistory).mockResolvedValueOnce({
+        data: [],
+        meta: { page: 2, pageSize: 5, total: 6, totalPages: 2 },
+      } as any)
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/pets/pet-1/tutorship-history?page=2&pageSize=5',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(jest.mocked(service.getTutorshipHistory)).toHaveBeenCalledWith('pet-1', { page: 2, pageSize: 5 })
 
       await app.close()
     })

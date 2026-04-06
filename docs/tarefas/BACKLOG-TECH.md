@@ -380,7 +380,7 @@ em `AdoptionListing` e `LostFoundReport`. Criar migration.
 | ID           | TECH-BE-016 |
 | Categoria    | Performance |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 `resolveActorContext` consulta o banco a cada requisição autenticada em rotas de org, gerando queries repetidas.
@@ -404,7 +404,7 @@ Incluir `orgRoles: { orgId, role }[]` no payload do JWT access token, eliminando
 | ID           | TECH-BE-017 |
 | Categoria    | Performance |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 O endpoint de histórico carrega todos os registros sem limite. Pets com muitas transferências causarão respostas pesadas.
@@ -425,7 +425,7 @@ Adicionar `limit` e `cursor` (ou `page`) no repository e expor via query params 
 | ID           | TECH-BE-018 |
 | Categoria    | Performance |
 | Prioridade   | Baixa |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 O include de `coTutors` está em todas as queries de Pet, mesmo em listagens e pickers onde não são necessários.
@@ -445,7 +445,7 @@ Remover `coTutors` do include padrão. Criar variante `petDetailInclude` com co-
 | ID           | TECH-BE-019 |
 | Categoria    | Performance |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 Em Vercel, cada função pode criar novas conexões. Sem `connection_limit=1` no `DATABASE_URL`, as conexões com o Supabase PgBouncer podem se esgotar sob carga.
@@ -491,7 +491,7 @@ Substituir por `.catch((err) => logger.warn('storage.delete.failed', { err, buck
 | ID           | TECH-BE-021 |
 | Categoria    | Qualidade |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 Não há limites mínimos de cobertura. É possível adicionar código sem testes e o CI não falha.
@@ -517,7 +517,7 @@ collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/__tests__/**'],
 | ID           | TECH-BE-022 |
 | Categoria    | Qualidade |
 | Prioridade   | Média |
-| Status       | Pendente |
+| Status       | Concluída |
 
 **Problema**  
 Alguns controllers retornam `200` onde deveriam retornar `201` (POST de criação) ou `204` (DELETE sem body).

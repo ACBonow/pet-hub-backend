@@ -383,7 +383,28 @@ O banco de dados é hospedado no **Supabase** (PostgreSQL gerenciado).
 - **ORM**: Prisma conectado à connection string do Supabase (`DATABASE_URL` + `DIRECT_URL`).
 - **Storage**: Supabase Storage para arquivos e imagens.
 - **Row Level Security (RLS)**: Habilitado nas tabelas sensíveis.
-- **Connection pooling**: Use `DATABASE_URL` com o pooler do Supabase (porta 6543) para funções serverless. Use `DIRECT_URL` (porta 5432) para migrations do Prisma.
+
+#### Connection Pooling (Vercel Serverless)
+
+No Vercel, cada invocação de função pode criar uma nova conexão com o banco. Sem limitar isso, o pool de conexões do Supabase PgBouncer se esgota rapidamente sob carga.
+
+**Duas URLs obrigatórias:**
+
+| Variável | Porta | Quando usar |
+|----------|-------|-------------|
+| `DATABASE_URL` | 6543 (PgBouncer) | Todas as queries na aplicação serverless |
+| `DIRECT_URL` | 5432 (PostgreSQL direto) | Exclusivamente para `prisma migrate` |
+
+**Parâmetros obrigatórios em `DATABASE_URL`:**
+
+```
+?pgbouncer=true&connection_limit=1
+```
+
+- `pgbouncer=true` — desativa prepared statements (incompatíveis com PgBouncer no modo transaction pooling)
+- `connection_limit=1` — limita cada instância serverless a 1 conexão, evitando esgotamento do pool
+
+> **Atenção**: Nunca use `DIRECT_URL` em produção para queries. Ela bypassa o pooler e cria conexões persistentes que não escalam no modelo serverless.
 
 **Buckets de Storage:**
 
@@ -397,7 +418,7 @@ O banco de dados é hospedado no **Supabase** (PostgreSQL gerenciado).
 
 Variáveis adicionais obrigatórias do backend:
 ```
-DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
+DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
 DIRECT_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=

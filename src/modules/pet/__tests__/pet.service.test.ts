@@ -442,17 +442,29 @@ describe('PetService', () => {
       })
     })
 
-    it('should return tutorship history for existing pet', async () => {
+    it('should return paginated tutorship history for existing pet', async () => {
       const history: TutorshipRecord[] = [
         { ...MOCK_ACTIVE_TUTORSHIP, id: 'tutorship-2', active: false, endDate: new Date() },
         MOCK_ACTIVE_TUTORSHIP,
       ]
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
-      petRepo.getTutorshipHistory.mockResolvedValueOnce(history)
+      petRepo.getTutorshipHistory.mockResolvedValueOnce({ data: history, meta: { page: 1, pageSize: 20, total: 2, totalPages: 1 } })
 
       const result = await service.getTutorshipHistory('pet-1')
 
-      expect(result).toHaveLength(2)
+      expect(result.data).toHaveLength(2)
+      expect(result.meta.total).toBe(2)
+    })
+
+    it('should forward pagination params to repository', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      petRepo.getTutorshipHistory.mockResolvedValueOnce({ data: [MOCK_ACTIVE_TUTORSHIP], meta: { page: 2, pageSize: 5, total: 6, totalPages: 2 } })
+
+      const result = await service.getTutorshipHistory('pet-1', { page: 2, pageSize: 5 })
+
+      expect(petRepo.getTutorshipHistory).toHaveBeenCalledWith('pet-1', { page: 2, pageSize: 5 })
+      expect(result.meta.page).toBe(2)
+      expect(result.meta.pageSize).toBe(5)
     })
   })
 

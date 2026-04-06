@@ -75,12 +75,17 @@ export class PetController {
       })
     }
     const tutorship = await this.service.transferTutorship(request.params.id, parsed.data)
-    return reply.status(200).send({ success: true, data: tutorship })
+    return reply.status(201).send({ success: true, data: tutorship })
   }
 
-  async getTutorshipHistory(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const history = await this.service.getTutorshipHistory(request.params.id)
-    return reply.status(200).send({ success: true, data: history })
+  async getTutorshipHistory(
+    request: FastifyRequest<{ Params: { id: string }; Querystring: { page?: string; pageSize?: string } }>,
+    reply: FastifyReply,
+  ) {
+    const page = request.query.page ? parseInt(request.query.page, 10) : undefined
+    const pageSize = request.query.pageSize ? parseInt(request.query.pageSize, 10) : undefined
+    const result = await this.service.getTutorshipHistory(request.params.id, { page, pageSize })
+    return reply.status(200).send({ success: true, data: result.data, meta: result.meta })
   }
 
   async addCoTutor(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
