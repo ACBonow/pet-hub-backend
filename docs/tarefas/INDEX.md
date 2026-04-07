@@ -57,11 +57,17 @@ TASK-BE-001 → TASK-BE-002 → TASK-BE-003
 | TASK-BE-016  | Pet: upload de foto                         | Média      | BE-009                         | Concluída |
 | TASK-BE-017  | Adoption: createForUser + WhatsApp + org    | Média      | BE-010                         | Concluída |
 | TASK-BE-018  | Pet: campo castrado + migration             | Baixa      | BE-009                         | Concluída |
-| TASK-BE-019  | Registro atômico Person + User              | Alta       | BE-006, BE-007                 | Pendente  |
-| TASK-BE-020  | Papéis em OrganizationPerson (OWNER/MGR/MBR)| Alta      | BE-008, BE-019                 | Pendente  |
-| TASK-BE-021  | Contexto "Agindo Como" (organizationId)     | Alta       | BE-020                         | Pendente  |
-| TASK-BE-022  | Foto de organização (upload + photoUrl)     | Média      | BE-020                         | Pendente  |
-| TASK-BE-023  | Foto de serviço (upload + photoUrl)         | Média      | BE-021                         | Pendente  |
-| TASK-BE-024  | Gerenciamento de membros da organização     | Alta       | BE-020                         | Pendente  |
-| TASK-BE-025  | Lost & Found por organização                | Média      | BE-021                         | Pendente  |
-| TASK-BE-026  | Serviço por organização + permissão         | Média      | BE-021                         | Pendente  |
+| TASK-BE-019  | Registro atômico Person + User              | Alta       | BE-006, BE-007                 | Concluída |
+| TASK-BE-020  | Papéis em OrganizationPerson (OWNER/MGR/MBR)| Alta      | BE-008, BE-019                 | Concluída |
+| TASK-BE-021  | Contexto "Agindo Como" (organizationId)     | Alta       | BE-020                         | Concluída |
+| TASK-BE-022  | Foto de organização (upload + photoUrl)     | Média      | BE-020                         | Concluída |
+| TASK-BE-023  | Foto de serviço (upload + photoUrl)         | Média      | BE-021                         | Concluída |
+| TASK-BE-024  | Gerenciamento de membros da organização     | Alta       | BE-020                         | Concluída |
+| TASK-BE-025  | Lost & Found por organização                | Média      | BE-021                         | Concluída |
+| TASK-BE-026  | Serviço por organização + permissão         | Média      | BE-021                         | Concluída |
+| TASK-BE-027  | GET /organizations/:orgId/pets              | Média      | BE-020, BE-009                 | Concluída |
+| TASK-BE-028  | Filtro organizationId em listagens          | Média      | BE-021                         | Concluída |
+| TASK-BE-029  | CoTutorRecord enriquecido com name          | Baixa      | BE-009                         | Concluída |
+| TASK-BE-030  | DELETE /pet-health/:petId/vaccinations/:id  | Média      | BE-012                         | Concluída |
+| TASK-BE-031  | Editar anúncio de adoção (PATCH /adoptions/:id) | Média  | BE-010                         | Pendente  |
+| TASK-BE-032  | Editar relatório de achado/perdido (PATCH /lost-found/:id) | Média | BE-011          | Pendente  |
