@@ -19,6 +19,7 @@ export function registerAdoptionRoutes(app: FastifyInstance, service: AdoptionSe
 
   // Protected routes
   app.post('/api/v1/adoptions', { ...auth, handler: controller.create.bind(controller) })
+  app.patch('/api/v1/adoptions/:id', { ...auth, handler: controller.update.bind(controller) })
   app.patch('/api/v1/adoptions/:id/status', { ...auth, handler: controller.updateStatus.bind(controller) })
   app.delete('/api/v1/adoptions/:id', { ...auth, handler: controller.delete.bind(controller) })
 }

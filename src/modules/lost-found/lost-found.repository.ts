@@ -11,12 +11,14 @@ import type {
   LostFoundListFilters,
   LostFoundReport,
   LostFoundStatus,
+  LostFoundUpdateInput,
 } from './lost-found.types'
 
 export interface ILostFoundRepository {
   create(data: LostFoundCreateInput): Promise<LostFoundReport>
   findById(id: string): Promise<LostFoundReport | null>
   findAll(filters: LostFoundListFilters): Promise<{ reports: LostFoundReport[]; total: number }>
+  update(id: string, data: LostFoundUpdateInput): Promise<LostFoundReport>
   updateStatus(id: string, status: LostFoundStatus): Promise<LostFoundReport>
   updatePhotoUrl(id: string, photoUrl: string): Promise<void>
   delete(id: string): Promise<void>
@@ -82,6 +84,29 @@ export class PrismaLostFoundRepository implements ILostFoundRepository {
     ])
 
     return { reports: rows.map(mapReport), total }
+  }
+
+  async update(id: string, data: LostFoundUpdateInput): Promise<LostFoundReport> {
+    const row = await prisma.lostFoundReport.update({
+      where: { id },
+      data: {
+        ...(data.petName !== undefined && { petName: data.petName }),
+        ...(data.species !== undefined && { species: data.species }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.location !== undefined && { location: data.location }),
+        ...(data.addressStreet !== undefined && { addressStreet: data.addressStreet }),
+        ...(data.addressNeighborhood !== undefined && { addressNeighborhood: data.addressNeighborhood }),
+        ...(data.addressNumber !== undefined && { addressNumber: data.addressNumber }),
+        ...(data.addressCep !== undefined && { addressCep: data.addressCep }),
+        ...(data.addressCity !== undefined && { addressCity: data.addressCity }),
+        ...(data.addressState !== undefined && { addressState: data.addressState }),
+        ...(data.addressNotes !== undefined && { addressNotes: data.addressNotes }),
+        ...(data.contactEmail !== undefined && { contactEmail: data.contactEmail }),
+        ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
+      },
+      include: LOST_FOUND_INCLUDE,
+    })
+    return mapReport(row)
   }
 
   async updateStatus(id: string, status: LostFoundStatus): Promise<LostFoundReport> {

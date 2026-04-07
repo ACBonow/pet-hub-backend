@@ -8,6 +8,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
   CreateLostFoundSchema,
   LostFoundListQuerySchema,
+  UpdateLostFoundSchema,
   UpdateLostFoundStatusSchema,
 } from './lost-found.schema'
 import type { LostFoundService } from './lost-found.service'
@@ -42,6 +43,19 @@ export class LostFoundController {
 
   async findById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const report = await this.service.findById(request.params.id)
+    return reply.status(200).send({ success: true, data: report })
+  }
+
+  async update(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const parsed = UpdateLostFoundSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    const userId = (request as any).user!.id
+    const report = await this.service.update(request.params.id, parsed.data, userId)
     return reply.status(200).send({ success: true, data: report })
   }
 

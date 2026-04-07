@@ -53,6 +53,13 @@ export interface AdoptionCreateForUserInput {
   organizationId?: string | null
 }
 
+export interface AdoptionUpdateInput {
+  description?: string | null
+  contactEmail?: string | null
+  contactPhone?: string | null
+  contactWhatsapp?: string | null
+}
+
 export interface AdoptionUpdateStatusInput {
   status: AdoptionStatus
 }

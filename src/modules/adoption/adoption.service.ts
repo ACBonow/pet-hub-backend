@@ -18,6 +18,7 @@ import type {
   AdoptionListResult,
   AdoptionListingRecord,
   AdoptionStatus,
+  AdoptionUpdateInput,
 } from './adoption.types'
 
 export class AdoptionService {
@@ -136,6 +137,15 @@ export class AdoptionService {
         throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER podem modificar esta listagem.')
       }
     }
+  }
+
+  async update(id: string, input: AdoptionUpdateInput, userId: string): Promise<AdoptionListingRecord> {
+    const listing = await this.repository.findById(id)
+    if (!listing) {
+      throw HttpError.notFound('Listagem de adoção')
+    }
+    await this.verifyListingOwnership(listing, userId)
+    return this.repository.update(id, input)
   }
 
   async updateStatus(id: string, status: AdoptionStatus, userId: string): Promise<AdoptionListingRecord> {

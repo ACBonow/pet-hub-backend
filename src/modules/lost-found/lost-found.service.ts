@@ -20,6 +20,7 @@ import type {
   LostFoundListResult,
   LostFoundReport,
   LostFoundStatus,
+  LostFoundUpdateInput,
 } from './lost-found.types'
 import type { CreateLostFoundBody } from './lost-found.schema'
 
@@ -114,6 +115,15 @@ export class LostFoundService {
     } else if (report.reporterId !== person.id) {
       throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador do relatório pode modificá-lo.')
     }
+  }
+
+  async update(id: string, input: LostFoundUpdateInput, userId: string): Promise<LostFoundReport> {
+    const report = await this.repository.findById(id)
+    if (!report) {
+      throw HttpError.notFound('Relatório de achado/perdido')
+    }
+    await this.verifyReportOwnership(report, userId)
+    return this.repository.update(id, input)
   }
 
   async updateStatus(id: string, status: LostFoundStatus, userId: string): Promise<LostFoundReport> {

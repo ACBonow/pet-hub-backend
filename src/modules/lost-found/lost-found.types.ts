@@ -57,6 +57,22 @@ export interface LostFoundCreateInput {
   organizationId?: string
 }
 
+export interface LostFoundUpdateInput {
+  petName?: string | null
+  species?: string | null
+  description?: string
+  location?: string | null
+  addressStreet?: string | null
+  addressNeighborhood?: string | null
+  addressNumber?: string | null
+  addressCep?: string | null
+  addressCity?: string | null
+  addressState?: string | null
+  addressNotes?: string | null
+  contactEmail?: string
+  contactPhone?: string | null
+}
+
 export interface LostFoundUpdateStatusInput {
   status: LostFoundStatus
 }

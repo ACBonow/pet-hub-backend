@@ -90,6 +90,7 @@ function makeAdoptionRepo(overrides: Partial<IAdoptionRepository> = {}): jest.Mo
     findById: jest.fn(),
     findByPetId: jest.fn(),
     findAll: jest.fn(),
+    update: jest.fn(),
     updateStatus: jest.fn(),
     delete: jest.fn(),
     ...overrides,
@@ -440,6 +441,77 @@ describe('AdoptionService', () => {
       await service.delete('listing-1', 'user-1')
 
       expect(adoptionRepo.delete).toHaveBeenCalledWith('listing-1')
+    })
+  })
+
+  // ── update ───────────────────────────────────────────────────────────────
+
+  describe('update', () => {
+    it('should throw NOT_FOUND when listing does not exist', async () => {
+      adoptionRepo.findById.mockResolvedValueOnce(null)
+
+      await expect(service.update('nonexistent', { description: 'novo' }, 'user-1')).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user has no person profile', async () => {
+      adoptionRepo.findById.mockResolvedValueOnce(MOCK_LISTING)
+      personRepo.findByUserId.mockResolvedValueOnce(null)
+
+      await expect(service.update('listing-1', { description: 'novo' }, 'user-x')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the PERSON lister', async () => {
+      adoptionRepo.findById.mockResolvedValueOnce(MOCK_LISTING)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2' })
+
+      await expect(service.update('listing-1', { description: 'novo' }, 'user-2')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is MEMBER of listing org', async () => {
+      const orgListing: AdoptionListingRecord = { ...MOCK_LISTING, listerType: 'ORGANIZATION', personId: null, organizationId: 'org-1' }
+      adoptionRepo.findById.mockResolvedValueOnce(orgListing)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MEMBER')
+
+      await expect(service.update('listing-1', { description: 'novo' }, 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
+      })
+    })
+
+    it('should update listing when user is the PERSON lister', async () => {
+      const updated: AdoptionListingRecord = { ...MOCK_LISTING, description: 'Descrição atualizada', contactWhatsapp: '51999999999' }
+      adoptionRepo.findById.mockResolvedValueOnce(MOCK_LISTING)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      adoptionRepo.update.mockResolvedValueOnce(updated)
+
+      const result = await service.update('listing-1', { description: 'Descrição atualizada', contactWhatsapp: '51999999999' }, 'user-1')
+
+      expect(result.description).toBe('Descrição atualizada')
+      expect(result.contactWhatsapp).toBe('51999999999')
+      expect(adoptionRepo.update).toHaveBeenCalledWith('listing-1', { description: 'Descrição atualizada', contactWhatsapp: '51999999999' })
+    })
+
+    it('should update listing when user is MANAGER of listing org', async () => {
+      const orgListing: AdoptionListingRecord = { ...MOCK_LISTING, listerType: 'ORGANIZATION', personId: null, organizationId: 'org-1' }
+      const updated: AdoptionListingRecord = { ...orgListing, contactEmail: 'novo@email.com' }
+      adoptionRepo.findById.mockResolvedValueOnce(orgListing)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
+      orgRepo.getRole.mockResolvedValueOnce('MANAGER')
+      adoptionRepo.update.mockResolvedValueOnce(updated)
+
+      const result = await service.update('listing-1', { contactEmail: 'novo@email.com' }, 'user-1')
+
+      expect(result.contactEmail).toBe('novo@email.com')
     })
   })
 

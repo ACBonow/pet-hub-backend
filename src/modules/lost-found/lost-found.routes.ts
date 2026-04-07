@@ -20,6 +20,7 @@ export function registerLostFoundRoutes(app: FastifyInstance, service: LostFound
   // Protected routes
   app.post('/api/v1/lost-found', { ...auth, handler: controller.create.bind(controller) })
   app.post('/api/v1/lost-found/:id/photo', { ...auth, handler: controller.uploadPhoto.bind(controller) })
+  app.patch('/api/v1/lost-found/:id', { ...auth, handler: controller.update.bind(controller) })
   app.patch('/api/v1/lost-found/:id/status', { ...auth, handler: controller.updateStatus.bind(controller) })
   app.delete('/api/v1/lost-found/:id', { ...auth, handler: controller.delete.bind(controller) })
 }

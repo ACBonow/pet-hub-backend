@@ -11,6 +11,7 @@ import type {
   AdoptionListFilters,
   AdoptionListingRecord,
   AdoptionStatus,
+  AdoptionUpdateInput,
 } from './adoption.types'
 
 export interface IAdoptionRepository {
@@ -18,6 +19,7 @@ export interface IAdoptionRepository {
   findById(id: string): Promise<AdoptionListingRecord | null>
   findByPetId(petId: string): Promise<AdoptionListingRecord | null>
   findAll(filters: AdoptionListFilters): Promise<{ listings: AdoptionListingRecord[]; total: number }>
+  update(id: string, data: AdoptionUpdateInput): Promise<AdoptionListingRecord>
   updateStatus(id: string, status: AdoptionStatus): Promise<AdoptionListingRecord>
   delete(id: string): Promise<void>
 }
@@ -71,6 +73,20 @@ export class PrismaAdoptionRepository implements IAdoptionRepository {
     ])
 
     return { listings: rows.map(mapListing), total }
+  }
+
+  async update(id: string, data: AdoptionUpdateInput): Promise<AdoptionListingRecord> {
+    const row = await prisma.adoptionListing.update({
+      where: { id },
+      data: {
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.contactEmail !== undefined && { contactEmail: data.contactEmail }),
+        ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
+        ...(data.contactWhatsapp !== undefined && { contactWhatsapp: data.contactWhatsapp }),
+      },
+      include: ADOPTION_LISTING_INCLUDE,
+    })
+    return mapListing(row)
   }
 
   async updateStatus(id: string, status: AdoptionStatus): Promise<AdoptionListingRecord> {

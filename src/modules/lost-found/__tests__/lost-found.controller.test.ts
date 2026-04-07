@@ -603,4 +603,95 @@ describe('LostFound routes', () => {
       expect(response.statusCode).toBe(401)
     })
   })
+
+  // ── PATCH /api/v1/lost-found/:id ──────────────────────────────────────────
+
+  describe('PATCH /api/v1/lost-found/:id', () => {
+    it('returns 200 with updated report', async () => {
+      const updated = { ...MOCK_REPORT, description: 'Nova descrição', contactPhone: '11 98888-0000' }
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.update).mockResolvedValueOnce(updated as any)
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { description: 'Nova descrição', contactPhone: '11 98888-0000' },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data.description).toBe('Nova descrição')
+    })
+
+    it('returns 400 on validation error (invalid email)', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { contactEmail: 'not-an-email' },
+      })
+
+      expect(response.statusCode).toBe(400)
+      expect(response.json().success).toBe(false)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        body: { description: 'Nova descrição' },
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+
+    it('returns 403 when user does not own the report', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.update).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Sem permissão.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { description: 'Nova descrição' },
+      })
+
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('returns 404 when report not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.update).mockRejectedValueOnce(HttpError.notFound('Relatório de achado/perdido'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { description: 'Nova descrição' },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('passes userId to service.update', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.update).mockResolvedValueOnce(MOCK_REPORT as any)
+
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/lost-found/report-1',
+        headers: { authorization: `Bearer ${makeAuthToken('user-42')}` },
+        body: { description: 'Nova descrição' },
+      })
+
+      expect(service.update).toHaveBeenCalledWith('report-1', expect.any(Object), 'user-42')
+    })
+  })
 })
