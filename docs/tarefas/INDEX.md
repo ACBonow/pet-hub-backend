@@ -69,5 +69,5 @@ TASK-BE-001 → TASK-BE-002 → TASK-BE-003
 | TASK-BE-028  | Filtro organizationId em listagens          | Média      | BE-021                         | Concluída |
 | TASK-BE-029  | CoTutorRecord enriquecido com name          | Baixa      | BE-009                         | Concluída |
 | TASK-BE-030  | DELETE /pet-health/:petId/vaccinations/:id  | Média      | BE-012                         | Concluída |
-| TASK-BE-031  | Editar anúncio de adoção (PATCH /adoptions/:id) | Média  | BE-010                         | Pendente  |
-| TASK-BE-032  | Editar relatório de achado/perdido (PATCH /lost-found/:id) | Média | BE-011          | Pendente  |
+| TASK-BE-031  | Editar anúncio de adoção (PATCH /adoptions/:id) | Média  | BE-010                         | Concluída |
+| TASK-BE-032  | Editar relatório de achado/perdido (PATCH /lost-found/:id) | Média | BE-011          | Concluída |
