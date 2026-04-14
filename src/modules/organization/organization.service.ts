@@ -18,7 +18,6 @@ import type {
   OrgRole,
   OrganizationCreateInput,
   OrganizationMemberView,
-  OrganizationPersonRecord,
   OrganizationRecord,
   OrganizationUpdateInput,
 } from './organization.types'

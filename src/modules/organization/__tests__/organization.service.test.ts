@@ -506,7 +506,6 @@ describe('OrganizationService', () => {
   // ── addMember ─────────────────────────────────────────────────────────────
 
   describe('addMember', () => {
-    const REQUESTER_PERSON = { ...MOCK_PERSON, id: 'person-1', userId: 'user-1' }
     const TARGET_PERSON = { ...MOCK_PERSON, id: 'person-99', cpf: '52998224725' }
 
     it('should add member with given role when requester is OWNER and CPF is valid', async () => {
