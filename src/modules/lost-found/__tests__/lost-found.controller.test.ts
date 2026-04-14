@@ -537,6 +537,7 @@ describe('LostFound routes', () => {
         'report-1',
         expect.any(Buffer),
         'image/jpeg',
+        'user-1',
       )
     })
 

@@ -33,7 +33,7 @@ describe('Auth routes', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         user: { id: 'user-1', email: 'new@example.com' },
-        person: { id: 'person-1', name: 'João Silva', cpf: '52998224725' },
+        person: { id: 'person-1', name: 'João Silva' },
       })
 
       const response = await app.inject({
@@ -104,7 +104,7 @@ describe('Auth routes', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         user: { id: 'user-1', email: 'test@example.com' },
-        person: { id: 'person-1', name: 'João Silva', cpf: '52998224725' },
+        person: { id: 'person-1', name: 'João Silva' },
       })
 
       const response = await app.inject({

@@ -110,7 +110,8 @@ export class LostFoundController {
       })
     }
 
-    const report = await this.service.uploadPhoto(request.params.id, buffer, data.mimetype)
+    const userId = (request as any).user!.id
+    const report = await this.service.uploadPhoto(request.params.id, buffer, data.mimetype, userId)
     return reply.status(200).send({ success: true, data: report })
   }
 }

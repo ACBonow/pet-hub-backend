@@ -86,7 +86,7 @@ export class AuthService {
     return {
       ...tokens,
       user: { id: user.id, email: user.email },
-      person: { id: person.id, name: person.name, cpf: person.cpf },
+      person: { id: person.id, name: person.name },
     }
   }
 
@@ -110,7 +110,7 @@ export class AuthService {
 
     const personRecord = await this.personRepository.findByUserId(user.id)
     const person = personRecord
-      ? { id: personRecord.id, name: personRecord.name, cpf: personRecord.cpf }
+      ? { id: personRecord.id, name: personRecord.name }
       : null
 
     return { ...tokens, user: { id: user.id, email: user.email }, person }

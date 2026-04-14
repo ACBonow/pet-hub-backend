@@ -377,23 +377,38 @@ describe('PetService', () => {
           tutorType: 'PERSON',
           personCpf: '52998224725',
           tutorshipType: 'OWNER',
-        }),
+        }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the primary tutor', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-99' })
+
+      await expect(
+        service.transferTutorship('pet-1', {
+          tutorType: 'PERSON',
+          personCpf: '52998224725',
+          tutorshipType: 'OWNER',
+        }, 'other-user'),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
     })
 
     it('should throw TUTOR_REQUIRED when personCpf not provided for PERSON tutor', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
 
       await expect(
         service.transferTutorship('pet-1', {
           tutorType: 'PERSON',
           tutorshipType: 'OWNER',
-        }),
+        }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 400, code: 'TUTOR_REQUIRED' })
     })
 
     it('should throw NOT_FOUND when new person tutor CPF does not exist', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       personRepo.findByCpf.mockResolvedValueOnce(null)
 
       await expect(
@@ -401,7 +416,7 @@ describe('PetService', () => {
           tutorType: 'PERSON',
           personCpf: '52998224725',
           tutorshipType: 'OWNER',
-        }),
+        }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
@@ -413,6 +428,7 @@ describe('PetService', () => {
         startDate: new Date('2026-03-01'),
       }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       personRepo.findByCpf.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2', cpf: '07493124050' })
       petRepo.transferTutorship.mockResolvedValueOnce(newTutorship)
 
@@ -420,7 +436,7 @@ describe('PetService', () => {
         tutorType: 'PERSON',
         personCpf: '07493124050',
         tutorshipType: 'OWNER',
-      })
+      }, 'user-1')
 
       expect(result).toEqual(newTutorship)
       expect(personRepo.findByCpf).toHaveBeenCalledWith('07493124050')
@@ -475,34 +491,46 @@ describe('PetService', () => {
       petRepo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.addCoTutor('nonexistent', { tutorType: 'PERSON', personCpf: '52998224725' }),
+        service.addCoTutor('nonexistent', { tutorType: 'PERSON', personCpf: '52998224725' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the primary tutor', async () => {
+      petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-99' })
+
+      await expect(
+        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }, 'other-user'),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
     })
 
     it('should throw TUTOR_REQUIRED when personCpf not provided for PERSON type', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
 
       await expect(
-        service.addCoTutor('pet-1', { tutorType: 'PERSON' }),
+        service.addCoTutor('pet-1', { tutorType: 'PERSON' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 400, code: 'TUTOR_REQUIRED' })
     })
 
     it('should throw NOT_FOUND when co-tutor CPF does not exist', async () => {
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       personRepo.findByCpf.mockResolvedValueOnce(null)
 
       await expect(
-        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }),
+        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
     })
 
     it('should throw TUTOR_CONFLICT when co-tutor is same as active primary tutor', async () => {
       // MOCK_PET has activeTutorship.personTutorId = 'person-1'
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       personRepo.findByCpf.mockResolvedValueOnce(MOCK_PERSON) // resolves to person-1
 
       await expect(
-        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }),
+        service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '52998224725' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 409, code: 'TUTOR_CONFLICT' })
     })
 
@@ -517,10 +545,11 @@ describe('PetService', () => {
         assignedAt: new Date(),
       }
       petRepo.findById.mockResolvedValueOnce(MOCK_PET)
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       personRepo.findByCpf.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-2', cpf: '07493124050' })
       petRepo.addCoTutor.mockResolvedValueOnce(coTutor)
 
-      const result = await service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '07493124050' })
+      const result = await service.addCoTutor('pet-1', { tutorType: 'PERSON', personCpf: '07493124050' }, 'user-1')
 
       expect(result).toEqual(coTutor)
       expect(result.name).toBe('Maria Santos')

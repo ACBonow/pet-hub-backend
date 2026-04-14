@@ -74,7 +74,8 @@ export class PetController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const tutorship = await this.service.transferTutorship(request.params.id, parsed.data)
+    const userId = (request as any).user!.id
+    const tutorship = await this.service.transferTutorship(request.params.id, parsed.data, userId)
     return reply.status(201).send({ success: true, data: tutorship })
   }
 
@@ -96,7 +97,8 @@ export class PetController {
         error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
       })
     }
-    const coTutor = await this.service.addCoTutor(request.params.id, parsed.data)
+    const userId = (request as any).user!.id
+    const coTutor = await this.service.addCoTutor(request.params.id, parsed.data, userId)
     return reply.status(201).send({ success: true, data: coTutor })
   }
 

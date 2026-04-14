@@ -45,7 +45,7 @@ export interface AuthTokens {
 
 export interface AuthLoginResponse extends AuthTokens {
   user: { id: string; email: string }
-  person: { id: string; name: string; cpf: string } | null
+  person: { id: string; name: string } | null
 }
 
 export interface AuthUser {

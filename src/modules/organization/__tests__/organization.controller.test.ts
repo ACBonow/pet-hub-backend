@@ -508,6 +508,21 @@ describe('Organization routes', () => {
       await app.close()
     })
 
+    it('returns 403 when user lacks OWNER/MANAGER permission', async () => {
+      const { app } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      mockResolveActorContext.mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Permissão insuficiente.'))
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/organizations/org-1/persons/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken('other-user')}` },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
 
@@ -570,6 +585,21 @@ describe('Organization routes', () => {
       })
 
       expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 403 when user lacks OWNER/MANAGER permission', async () => {
+      const { app } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      mockResolveActorContext.mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Permissão insuficiente.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1/persons/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken('other-user')}` },
+      })
+
+      expect(response.statusCode).toBe(403)
       await app.close()
     })
 
@@ -837,6 +867,22 @@ describe('Organization routes', () => {
       await app.close()
     })
 
+    it('returns 403 when user lacks OWNER/MANAGER permission', async () => {
+      const { app } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      mockResolveActorContext.mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Permissão insuficiente.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/organizations/org-1/members/person-2/role',
+        headers: { authorization: `Bearer ${makeAuthToken('other-user')}` },
+        payload: { role: 'MANAGER' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
 
@@ -977,6 +1023,21 @@ describe('Organization routes', () => {
       expect(response.statusCode).toBe(409)
       const body = response.json()
       expect(body.error.code).toBe('LAST_OWNER')
+      await app.close()
+    })
+
+    it('returns 403 when user lacks OWNER/MANAGER permission', async () => {
+      const { app } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      mockResolveActorContext.mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Permissão insuficiente.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/organizations/org-1/members/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken('other-user')}` },
+      })
+
+      expect(response.statusCode).toBe(403)
       await app.close()
     })
 

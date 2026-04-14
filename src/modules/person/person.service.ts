@@ -5,6 +5,7 @@
  */
 
 import { sanitizeCpf, validateCpf } from '../../shared/validators/cpf.validator'
+import { AppError } from '../../shared/errors/AppError'
 import { HttpError } from '../../shared/errors/HttpError'
 import type { IPersonRepository } from './person.repository'
 import type { PersonCreateInput, PersonRecord, PersonUpdateInput } from './person.types'
@@ -48,18 +49,24 @@ export class PersonService {
     return person
   }
 
-  async update(id: string, data: PersonUpdateInput): Promise<PersonRecord> {
+  async update(id: string, data: PersonUpdateInput, userId: string): Promise<PersonRecord> {
     const person = await this.repository.findById(id)
     if (!person) {
       throw HttpError.notFound('Pessoa')
     }
+    if (person.userId !== userId) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para editar este perfil.')
+    }
     return this.repository.update(id, data)
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const person = await this.repository.findById(id)
     if (!person) {
       throw HttpError.notFound('Pessoa')
+    }
+    if (person.userId !== userId) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para excluir este perfil.')
     }
     await this.repository.delete(id)
   }

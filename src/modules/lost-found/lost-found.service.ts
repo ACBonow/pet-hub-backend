@@ -144,11 +144,12 @@ export class LostFoundService {
     await this.repository.delete(id)
   }
 
-  async uploadPhoto(reportId: string, file: Buffer, mimeType: string): Promise<LostFoundReport> {
+  async uploadPhoto(reportId: string, file: Buffer, mimeType: string, userId: string): Promise<LostFoundReport> {
     const report = await this.repository.findById(reportId)
     if (!report) {
       throw HttpError.notFound('Relatório de achado/perdido')
     }
+    await this.verifyReportOwnership(report, userId)
 
     if (report.photoUrl) {
       const oldPath = extractPathFromUrl(report.photoUrl, 'lost-found-images')

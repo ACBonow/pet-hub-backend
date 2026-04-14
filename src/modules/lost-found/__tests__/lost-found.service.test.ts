@@ -259,7 +259,7 @@ describe('LostFoundService', () => {
       personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       lostFoundRepo.create.mockResolvedValueOnce({ ...MOCK_REPORT, reporterId: 'person-1' })
 
-      const result = await service.createForUser('user-1', {
+      const _result = await service.createForUser('user-1', {
         type: 'FOUND',
         description: 'Encontrei um gato.',
         contactEmail: 'joao@example.com',
@@ -603,9 +603,19 @@ describe('LostFoundService', () => {
     it('should throw NOT_FOUND when report does not exist', async () => {
       lostFoundRepo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.uploadPhoto('nonexistent', FILE, MIME)).rejects.toMatchObject({
+      await expect(service.uploadPhoto('nonexistent', FILE, MIME, 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when user is not the reporter', async () => {
+      lostFoundRepo.findById.mockResolvedValueOnce(MOCK_REPORT)
+      personRepo.findByUserId.mockResolvedValueOnce({ ...MOCK_PERSON, id: 'person-99' })
+
+      await expect(service.uploadPhoto('report-1', FILE, MIME, 'other-user')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
       })
     })
 
@@ -613,10 +623,11 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(MOCK_REPORT)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
-      const result = await service.uploadPhoto('report-1', FILE, MIME)
+      const result = await service.uploadPhoto('report-1', FILE, MIME, 'user-1')
 
       expect(mockFileStorage.upload).toHaveBeenCalledWith(
         'lost-found-images',
@@ -633,11 +644,12 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(reportWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       mockFileStorage.delete.mockResolvedValueOnce(undefined)
       mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
-      await service.uploadPhoto('report-1', FILE, MIME)
+      await service.uploadPhoto('report-1', FILE, MIME, 'user-1')
 
       expect(mockFileStorage.delete).toHaveBeenCalledWith(
         'lost-found-images',
@@ -650,11 +662,12 @@ describe('LostFoundService', () => {
       lostFoundRepo.findById
         .mockResolvedValueOnce(reportWithPhoto)
         .mockResolvedValueOnce({ ...MOCK_REPORT, photoUrl: PHOTO_URL })
+      personRepo.findByUserId.mockResolvedValueOnce(MOCK_PERSON)
       mockFileStorage.delete.mockRejectedValueOnce(new Error('Storage error'))
       mockFileStorage.upload.mockResolvedValueOnce(PHOTO_URL)
       lostFoundRepo.updatePhotoUrl.mockResolvedValueOnce(undefined)
 
-      await expect(service.uploadPhoto('report-1', FILE, MIME)).resolves.toBeDefined()
+      await expect(service.uploadPhoto('report-1', FILE, MIME, 'user-1')).resolves.toBeDefined()
       expect(mockFileStorage.upload).toHaveBeenCalled()
     })
   })

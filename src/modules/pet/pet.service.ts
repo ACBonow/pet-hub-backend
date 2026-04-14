@@ -121,10 +121,14 @@ export class PetService {
     await this.repository.delete(id)
   }
 
-  async transferTutorship(petId: string, data: TransferTutorshipInput): Promise<TutorshipRecord> {
+  async transferTutorship(petId: string, data: TransferTutorshipInput, userId: string): Promise<TutorshipRecord> {
     const pet = await this.repository.findById(petId)
     if (!pet) {
       throw HttpError.notFound('Pet')
+    }
+    const requestingPerson = await this.personRepository.findByUserId(userId)
+    if (!requestingPerson || pet.activeTutorship?.personTutorId !== requestingPerson.id) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o tutor primário pode transferir a tutoria.')
     }
 
     let personTutorId: string | undefined
@@ -159,10 +163,14 @@ export class PetService {
     return this.repository.getTutorshipHistory(petId, params)
   }
 
-  async addCoTutor(petId: string, data: AddCoTutorInput): Promise<CoTutorRecord> {
+  async addCoTutor(petId: string, data: AddCoTutorInput, userId: string): Promise<CoTutorRecord> {
     const pet = await this.repository.findById(petId)
     if (!pet) {
       throw HttpError.notFound('Pet')
+    }
+    const requestingPerson = await this.personRepository.findByUserId(userId)
+    if (!requestingPerson || pet.activeTutorship?.personTutorId !== requestingPerson.id) {
+      throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o tutor primário pode gerenciar co-tutores.')
     }
 
     let personTutorId: string | undefined

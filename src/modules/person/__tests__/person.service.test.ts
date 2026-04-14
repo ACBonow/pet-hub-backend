@@ -153,8 +153,16 @@ describe('PersonService', () => {
       repo.findById.mockResolvedValueOnce(null)
 
       await expect(
-        service.update('unknown-id', { name: 'Novo Nome' }),
+        service.update('unknown-id', { name: 'Novo Nome' }, 'user-1'),
       ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when userId does not match', async () => {
+      repo.findById.mockResolvedValueOnce(MOCK_PERSON)
+
+      await expect(
+        service.update('person-1', { name: 'Novo Nome' }, 'other-user'),
+      ).rejects.toMatchObject({ statusCode: 403, code: 'INSUFFICIENT_PERMISSION' })
     })
 
     it('should update and return updated person', async () => {
@@ -162,7 +170,7 @@ describe('PersonService', () => {
       repo.findById.mockResolvedValueOnce(MOCK_PERSON)
       repo.update.mockResolvedValueOnce(updated)
 
-      const result = await service.update('person-1', { name: 'Novo Nome' })
+      const result = await service.update('person-1', { name: 'Novo Nome' }, 'user-1')
 
       expect(result.name).toBe('Novo Nome')
       expect(repo.update).toHaveBeenCalledWith('person-1', { name: 'Novo Nome' })
@@ -175,9 +183,18 @@ describe('PersonService', () => {
     it('should throw NOT_FOUND when person does not exist', async () => {
       repo.findById.mockResolvedValueOnce(null)
 
-      await expect(service.delete('unknown-id')).rejects.toMatchObject({
+      await expect(service.delete('unknown-id', 'user-1')).rejects.toMatchObject({
         statusCode: 404,
         code: 'NOT_FOUND',
+      })
+    })
+
+    it('should throw INSUFFICIENT_PERMISSION when userId does not match', async () => {
+      repo.findById.mockResolvedValueOnce(MOCK_PERSON)
+
+      await expect(service.delete('person-1', 'other-user')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'INSUFFICIENT_PERMISSION',
       })
     })
 
@@ -185,7 +202,7 @@ describe('PersonService', () => {
       repo.findById.mockResolvedValueOnce(MOCK_PERSON)
       repo.delete.mockResolvedValueOnce(undefined)
 
-      await service.delete('person-1')
+      await service.delete('person-1', 'user-1')
 
       expect(repo.delete).toHaveBeenCalledWith('person-1')
     })

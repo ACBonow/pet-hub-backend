@@ -189,6 +189,22 @@ describe('Person routes', () => {
       await app.close()
     })
 
+    it('returns 403 when user tries to update another person profile', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.update).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para editar este perfil.'))
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/persons/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        payload: { name: 'Novo Nome' },
+      })
+
+      expect(response.statusCode).toBe(403)
+      await app.close()
+    })
+
     it('returns 401 when not authenticated', async () => {
       const { app } = await buildTestApp()
 
@@ -232,6 +248,21 @@ describe('Person routes', () => {
       })
 
       expect(response.statusCode).toBe(404)
+      await app.close()
+    })
+
+    it('returns 403 when user tries to delete another person profile', async () => {
+      const { app, service } = await buildTestApp()
+      const { AppError } = await import('../../../shared/errors/AppError')
+      jest.mocked(service.delete).mockRejectedValueOnce(new AppError(403, 'INSUFFICIENT_PERMISSION', 'Você não tem permissão para excluir este perfil.'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/persons/person-2',
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(403)
       await app.close()
     })
 

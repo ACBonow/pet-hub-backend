@@ -64,6 +64,7 @@ export class OrganizationController {
     request: FastifyRequest<{ Params: { id: string; personId: string } }>,
     reply: FastifyReply,
   ) {
+    await resolveActorContext(request.user!.id, request.params.id)
     await this.service.addPerson(request.params.id, request.params.personId)
     return reply.status(201).send({ success: true })
   }
@@ -72,6 +73,7 @@ export class OrganizationController {
     request: FastifyRequest<{ Params: { id: string; personId: string } }>,
     reply: FastifyReply,
   ) {
+    await resolveActorContext(request.user!.id, request.params.id)
     await this.service.removePerson(request.params.id, request.params.personId)
     return reply.status(204).send()
   }
@@ -97,6 +99,7 @@ export class OrganizationController {
     request: FastifyRequest<{ Params: { id: string; personId: string } }>,
     reply: FastifyReply,
   ) {
+    await resolveActorContext(request.user!.id, request.params.id)
     const parsed = ChangeRoleSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send({
@@ -112,6 +115,7 @@ export class OrganizationController {
     request: FastifyRequest<{ Params: { id: string; personId: string } }>,
     reply: FastifyReply,
   ) {
+    await resolveActorContext(request.user!.id, request.params.id)
     await this.service.removePerson(request.params.id, request.params.personId)
     return reply.status(204).send()
   }
