@@ -20,6 +20,7 @@ import { PrismaAdoptionRepository, registerAdoptionRoutes, AdoptionService } fro
 import { PrismaLostFoundRepository, registerLostFoundRoutes, LostFoundService } from './modules/lost-found'
 import { PrismaPetHealthRepository, registerPetHealthRoutes, PetHealthService } from './modules/pet-health'
 import { PrismaServicesDirectoryRepository, PrismaServiceTypeRepository, registerServicesDirectoryRoutes, ServicesDirectoryService } from './modules/services-directory'
+import { PrismaVaccineCatalogRepository, registerVaccineCatalogRoutes, VaccineCatalogService } from './modules/vaccine-catalog'
 import { SupabaseFileStorage } from './shared/storage/SupabaseFileStorage'
 
 export function buildApp(): FastifyInstance {
@@ -88,6 +89,7 @@ export function buildApp(): FastifyInstance {
     petRepository,
     personRepository,
     fileStorage,
+    new PrismaVaccineCatalogRepository(),
   )
   registerPetHealthRoutes(app, petHealthService)
 
@@ -100,6 +102,10 @@ export function buildApp(): FastifyInstance {
     fileStorage,
   )
   registerServicesDirectoryRoutes(app, servicesDirectoryService)
+
+  // Vaccine Catalog routes (read-only, public)
+  const vaccineCatalogService = new VaccineCatalogService(new PrismaVaccineCatalogRepository())
+  registerVaccineCatalogRoutes(app, vaccineCatalogService)
 
   return app
 }

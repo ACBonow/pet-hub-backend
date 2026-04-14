@@ -5,7 +5,7 @@
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { AddVaccinationSchema } from './petHealth.schema'
+import { AddVaccinationSchema, AddPreventiveSchema } from './petHealth.schema'
 import type { PetHealthService } from './petHealth.service'
 import { validateImageMagicBytes } from '../../shared/utils/validate-image-magic'
 
@@ -133,6 +133,53 @@ export class PetHealthController {
     const { petId, examId } = request.params
     const userId = request.user!.id
     await this.service.deleteExamFile(petId, examId, userId)
+    return reply.status(204).send()
+  }
+
+  async getVaccineStatus(
+    request: FastifyRequest<{ Params: { petId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { petId } = request.params
+    const userId = request.user!.id
+    const status = await this.service.getVaccineStatus(petId, userId)
+    return reply.status(200).send({ success: true, data: status })
+  }
+
+  async addPreventive(
+    request: FastifyRequest<{ Params: { petId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const parsed = AddPreventiveSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: parsed.error.issues },
+      })
+    }
+    const { petId } = request.params
+    const userId = request.user!.id
+    const record = await this.service.addPreventive(petId, userId, parsed.data)
+    return reply.status(201).send({ success: true, data: record })
+  }
+
+  async listPreventives(
+    request: FastifyRequest<{ Params: { petId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { petId } = request.params
+    const userId = request.user!.id
+    const records = await this.service.listPreventives(petId, userId)
+    return reply.status(200).send({ success: true, data: records })
+  }
+
+  async deletePreventive(
+    request: FastifyRequest<{ Params: { petId: string; preventiveId: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { petId, preventiveId } = request.params
+    const userId = request.user!.id
+    await this.service.deletePreventive(petId, preventiveId, userId)
     return reply.status(204).send()
   }
 }

@@ -7,6 +7,7 @@
 import { z } from 'zod'
 
 export const AddVaccinationSchema = z.object({
+  templateId: z.string().uuid().optional(),
   vaccineName: z.string().min(1, 'Nome da vacina é obrigatório.').max(100, 'Nome da vacina deve ter no máximo 100 caracteres.'),
   manufacturer: z.string().max(100, 'Fabricante deve ter no máximo 100 caracteres.').optional(),
   batchNumber: z.string().max(50, 'Número do lote deve ter no máximo 50 caracteres.').optional(),
@@ -18,3 +19,15 @@ export const AddVaccinationSchema = z.object({
 })
 
 export type AddVaccinationDto = z.infer<typeof AddVaccinationSchema>
+
+export const AddPreventiveSchema = z.object({
+  templateId: z.string().uuid().optional(),
+  productName: z.string().min(1, 'Nome do produto é obrigatório.').max(100),
+  appliedAt: z.coerce.date(),
+  nextDueDate: z.coerce.date().optional(),
+  brand: z.string().max(100).optional(),
+  batchNumber: z.string().max(50).optional(),
+  notes: z.string().max(2000).optional(),
+})
+
+export type AddPreventiveDto = z.infer<typeof AddPreventiveSchema>

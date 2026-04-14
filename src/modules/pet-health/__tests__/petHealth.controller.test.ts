@@ -402,4 +402,180 @@ describe('PetHealth routes', () => {
       expect(response.statusCode).toBe(403)
     })
   })
+
+  // ── GET /api/v1/pet-health/:petId/vaccine-status ──────────────────────────
+
+  describe('GET /api/v1/pet-health/:petId/vaccine-status', () => {
+    it('returns 200 with vaccine status list', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.getVaccineStatus).mockResolvedValueOnce([
+        {
+          templateId: 'tmpl-1',
+          templateName: 'V10',
+          slug: 'multipla-canina',
+          category: 'CORE',
+          preventiveType: null,
+          isRequiredByLaw: false,
+          status: 'NOT_GIVEN',
+          daysOverdue: null,
+          lastDoseDate: null,
+          nextDueDate: null,
+          totalDosesGiven: 0,
+        },
+      ])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/pet-health/${PET_ID}/vaccine-status`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].status).toBe('NOT_GIVEN')
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/pet-health/${PET_ID}/vaccine-status`,
+      })
+
+      expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── GET /api/v1/pet-health/:petId/preventives ─────────────────────────────
+
+  describe('GET /api/v1/pet-health/:petId/preventives', () => {
+    it('returns 200 with preventive records', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.listPreventives).mockResolvedValueOnce([
+        {
+          id: 'prev-1',
+          petId: PET_ID,
+          templateId: null,
+          productName: 'Frontline Plus',
+          appliedAt: new Date('2026-03-01'),
+          nextDueDate: new Date('2026-04-01'),
+          brand: null,
+          batchNumber: null,
+          notes: null,
+          createdAt: new Date('2026-03-01'),
+        },
+      ])
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/pet-health/${PET_ID}/preventives`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.data[0].productName).toBe('Frontline Plus')
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+      const response = await app.inject({ method: 'GET', url: `/api/v1/pet-health/${PET_ID}/preventives` })
+      expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── POST /api/v1/pet-health/:petId/preventives ────────────────────────────
+
+  describe('POST /api/v1/pet-health/:petId/preventives', () => {
+    it('returns 201 with created preventive record', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.addPreventive).mockResolvedValueOnce({
+        id: 'prev-1',
+        petId: PET_ID,
+        templateId: null,
+        productName: 'Frontline Plus',
+        appliedAt: new Date('2026-03-01'),
+        nextDueDate: new Date('2026-04-01'),
+        brand: null,
+        batchNumber: null,
+        notes: null,
+        createdAt: new Date('2026-03-01'),
+      })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/v1/pet-health/${PET_ID}/preventives`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { productName: 'Frontline Plus', appliedAt: '2026-03-01' },
+      })
+
+      expect(response.statusCode).toBe(201)
+      expect(response.json().data.productName).toBe('Frontline Plus')
+    })
+
+    it('returns 400 on missing productName', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/v1/pet-health/${PET_ID}/preventives`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+        body: { appliedAt: '2026-03-01' },
+      })
+
+      expect(response.statusCode).toBe(400)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/v1/pet-health/${PET_ID}/preventives`,
+        body: { productName: 'Frontline', appliedAt: '2026-03-01' },
+      })
+      expect(response.statusCode).toBe(401)
+    })
+  })
+
+  // ── DELETE /api/v1/pet-health/:petId/preventives/:preventiveId ───────────
+
+  describe('DELETE /api/v1/pet-health/:petId/preventives/:preventiveId', () => {
+    it('returns 204 on successful deletion', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.deletePreventive).mockResolvedValueOnce(undefined)
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/preventives/prev-1`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(204)
+    })
+
+    it('returns 404 when preventive not found', async () => {
+      const { app, service } = await buildTestApp()
+      jest.mocked(service.deletePreventive).mockRejectedValueOnce(HttpError.notFound('Preventivo'))
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/preventives/nonexistent`,
+        headers: { authorization: `Bearer ${makeAuthToken()}` },
+      })
+
+      expect(response.statusCode).toBe(404)
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/pet-health/${PET_ID}/preventives/prev-1`,
+      })
+      expect(response.statusCode).toBe(401)
+    })
+  })
 })

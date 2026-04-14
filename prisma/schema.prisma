@@ -126,12 +126,13 @@ model Pet {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  tutorships       Tutorship[]
-  coTutors         CoTutor[]
-  vaccinations     Vaccination[]
-  examFiles        ExamFile[]
-  adoptionListing  AdoptionListing?
-  lostFoundReports LostFoundReport[]
+  tutorships        Tutorship[]
+  coTutors          CoTutor[]
+  vaccinations      Vaccination[]
+  examFiles         ExamFile[]
+  preventiveRecords PreventiveRecord[]
+  adoptionListing   AdoptionListing?
+  lostFoundReports  LostFoundReport[]
 
   @@index([deletedAt])
   @@map("pets")
@@ -268,11 +269,84 @@ model LostFoundReport {
   @@map("lost_found_reports")
 }
 
+// ─── Vaccine Catalog ─────────────────────────────────────────────────────────
+
+enum PetSpecies {
+  DOG
+  CAT
+  BIRD
+  RABBIT
+  OTHER
+}
+
+enum VaccineTemplateType {
+  VACCINE
+  PREVENTIVE
+}
+
+enum VaccineCategory {
+  CORE
+  NON_CORE
+  LIFESTYLE
+}
+
+enum PreventiveType {
+  FLEA
+  TICK
+  FLEA_TICK
+  DEWORMER
+  HEARTWORM
+  OTHER
+}
+
+model VaccineTemplate {
+  id                  String              @id @default(uuid())
+  name                String
+  slug                String              @unique
+  type                VaccineTemplateType
+  species             PetSpecies[]
+  category            VaccineCategory
+  preventiveType      PreventiveType?     @map("preventive_type")
+  targetConditions    String?             @map("target_conditions")
+  minimumAgeWeeks     Int                 @default(0) @map("minimum_age_weeks")
+  initialDosesCount   Int                 @default(1) @map("initial_doses_count")
+  initialIntervalDays Int                 @default(28) @map("initial_interval_days")
+  boosterIntervalDays Int                 @default(365) @map("booster_interval_days")
+  isRequiredByLaw     Boolean             @default(false) @map("is_required_by_law")
+  notes               String?
+  active              Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  brands            VaccineBrand[]
+  vaccinations      Vaccination[]
+  preventiveRecords PreventiveRecord[]
+
+  @@index([type, category])
+  @@map("vaccine_templates")
+}
+
+model VaccineBrand {
+  id           String   @id @default(uuid())
+  templateId   String   @map("template_id")
+  brandName    String   @map("brand_name")
+  manufacturer String
+  presentation String?
+  sizes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  template VaccineTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("vaccine_brands")
+}
+
 // ─── Pet Health ───────────────────────────────────────────────────────────────
 
 model Vaccination {
   id               String    @id @default(uuid())
   petId            String    @map("pet_id")
+  templateId       String?   @map("template_id")
+  doseNumber       Int?      @map("dose_number")
   vaccineName      String    @map("vaccine_name")
   manufacturer     String?
   batchNumber      String?   @map("batch_number")
@@ -280,14 +354,35 @@ model Vaccination {
   nextDueDate      DateTime? @map("next_due_date")
   veterinarianName String?   @map("veterinarian_name")
   clinicName       String?   @map("clinic_name")
-  fileUrl          String?   @map("file_url") // optional certificate scan
+  fileUrl          String?   @map("file_url")
   notes            String?
   createdAt        DateTime  @default(now()) @map("created_at")
 
-  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+  pet      Pet              @relation(fields: [petId], references: [id], onDelete: Cascade)
+  template VaccineTemplate? @relation(fields: [templateId], references: [id])
 
   @@index([petId, applicationDate])
+  @@index([petId, templateId])
   @@map("vaccinations")
+}
+
+model PreventiveRecord {
+  id          String    @id @default(uuid())
+  petId       String    @map("pet_id")
+  templateId  String?   @map("template_id")
+  productName String    @map("product_name")
+  appliedAt   DateTime  @map("applied_at")
+  nextDueDate DateTime? @map("next_due_date")
+  brand       String?
+  batchNumber String?   @map("batch_number")
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  pet      Pet              @relation(fields: [petId], references: [id], onDelete: Cascade)
+  template VaccineTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([petId, appliedAt])
+  @@map("preventive_records")
 }
 
 model ExamFile {

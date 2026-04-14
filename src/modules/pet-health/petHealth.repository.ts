@@ -8,6 +8,8 @@ import { prisma } from '../../shared/config/database'
 import type {
   ExamFileCreateInput,
   ExamFileRecord,
+  PreventiveCreateInput,
+  PreventiveRecord,
   VaccinationCreateInput,
   VaccinationRecord,
 } from './petHealth.types'
@@ -17,10 +19,15 @@ export interface IPetHealthRepository {
   getVaccinationCard(petId: string): Promise<VaccinationRecord[]>
   findVaccination(vaccinationId: string): Promise<VaccinationRecord | null>
   deleteVaccination(vaccinationId: string): Promise<void>
+  countVaccinationsForTemplate(petId: string, templateId: string): Promise<number>
   createExamFile(data: ExamFileCreateInput): Promise<ExamFileRecord>
   listExamFiles(petId: string): Promise<ExamFileRecord[]>
   findExamFile(examId: string): Promise<ExamFileRecord | null>
   deleteExamFile(examId: string): Promise<void>
+  addPreventive(data: PreventiveCreateInput): Promise<PreventiveRecord>
+  listPreventives(petId: string): Promise<PreventiveRecord[]>
+  findPreventive(id: string): Promise<PreventiveRecord | null>
+  deletePreventive(id: string): Promise<void>
 }
 
 export class PrismaPetHealthRepository implements IPetHealthRepository {
@@ -28,6 +35,8 @@ export class PrismaPetHealthRepository implements IPetHealthRepository {
     return prisma.vaccination.create({
       data: {
         petId: data.petId,
+        templateId: data.templateId ?? null,
+        doseNumber: data.doseNumber ?? null,
         vaccineName: data.vaccineName,
         manufacturer: data.manufacturer ?? null,
         batchNumber: data.batchNumber ?? null,
@@ -39,6 +48,10 @@ export class PrismaPetHealthRepository implements IPetHealthRepository {
         notes: data.notes ?? null,
       },
     })
+  }
+
+  async countVaccinationsForTemplate(petId: string, templateId: string): Promise<number> {
+    return prisma.vaccination.count({ where: { petId, templateId } })
   }
 
   async getVaccinationCard(petId: string): Promise<VaccinationRecord[]> {
@@ -82,5 +95,35 @@ export class PrismaPetHealthRepository implements IPetHealthRepository {
 
   async deleteExamFile(examId: string): Promise<void> {
     await prisma.examFile.delete({ where: { id: examId } })
+  }
+
+  async addPreventive(data: PreventiveCreateInput): Promise<PreventiveRecord> {
+    return prisma.preventiveRecord.create({
+      data: {
+        petId: data.petId,
+        templateId: data.templateId ?? null,
+        productName: data.productName,
+        appliedAt: data.appliedAt,
+        nextDueDate: data.nextDueDate ?? null,
+        brand: data.brand ?? null,
+        batchNumber: data.batchNumber ?? null,
+        notes: data.notes ?? null,
+      },
+    })
+  }
+
+  async listPreventives(petId: string): Promise<PreventiveRecord[]> {
+    return prisma.preventiveRecord.findMany({
+      where: { petId },
+      orderBy: { appliedAt: 'desc' },
+    })
+  }
+
+  async findPreventive(id: string): Promise<PreventiveRecord | null> {
+    return prisma.preventiveRecord.findUnique({ where: { id } })
+  }
+
+  async deletePreventive(id: string): Promise<void> {
+    await prisma.preventiveRecord.delete({ where: { id } })
   }
 }
