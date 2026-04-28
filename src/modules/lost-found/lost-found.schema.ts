@@ -30,7 +30,7 @@ export const CreateLostFoundSchema = z.object({
   addressNotes: z.string().max(300, 'Observações de endereço devem ter no máximo 300 caracteres.').optional(),
   contactEmail: z.string().email('Email de contato inválido.').max(254, 'E-mail deve ter no máximo 254 caracteres.'),
   contactPhone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').optional().nullable(),
-  organizationId: z.string().uuid('ID da organização inválido.').optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').nullish().transform((v) => v ?? undefined),
 })
 
 export const UpdateLostFoundSchema = z.object({

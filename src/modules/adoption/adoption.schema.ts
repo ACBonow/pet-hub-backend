@@ -24,7 +24,7 @@ export const CreateAdoptionForUserSchema = z.object({
     .transform((v) => v || null),
   contactPhone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').nullable().optional(),
   contactWhatsapp: z.string().max(20, 'WhatsApp deve ter no máximo 20 caracteres.').nullable().optional(),
-  organizationId: z.string().uuid('ID da organização inválido.').nullable().optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').nullish().transform((v) => v ?? undefined),
 })
 
 export const UpdateAdoptionSchema = z.object({
@@ -47,7 +47,7 @@ export const UpdateAdoptionStatusSchema = z.object({
 
 export const AdoptionListQuerySchema = z.object({
   status: AdoptionStatusEnum.optional(),
-  organizationId: z.string().uuid('ID da organização inválido.').optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').nullish().transform((v) => v ?? undefined),
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 })

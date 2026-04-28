@@ -27,7 +27,7 @@ export const CreateServiceListingSchema = z.object({
   youtube: z.string().max(100, 'YouTube deve ter no máximo 100 caracteres.').optional(),
   googleMapsUrl: z.string().url('URL inválida.').max(500, 'URL do Google Maps deve ter no máximo 500 caracteres.').optional(),
   googleBusinessUrl: z.string().url('URL inválida.').max(500, 'URL do Google Business deve ter no máximo 500 caracteres.').optional(),
-  organizationId: z.string().uuid('organizationId deve ser um UUID válido.').optional(),
+  organizationId: z.string().uuid('organizationId deve ser um UUID válido.').nullish().transform((v) => v ?? undefined),
 })
 
 export const UpdateServiceListingSchema = z.object({
@@ -51,13 +51,13 @@ export const UpdateServiceListingSchema = z.object({
   youtube: z.string().max(100, 'YouTube deve ter no máximo 100 caracteres.').optional(),
   googleMapsUrl: z.string().url('URL inválida.').max(500, 'URL do Google Maps deve ter no máximo 500 caracteres.').optional(),
   googleBusinessUrl: z.string().url('URL inválida.').max(500, 'URL do Google Business deve ter no máximo 500 caracteres.').optional(),
-  organizationId: z.string().uuid('organizationId deve ser um UUID válido.').optional(),
+  organizationId: z.string().uuid('organizationId deve ser um UUID válido.').nullish().transform((v) => v ?? undefined),
 })
 
 export const ListServicesQuerySchema = z.object({
   type: z.string().optional(),
   name: z.string().optional(),
-  organizationId: z.string().uuid('ID da organização inválido.').optional(),
+  organizationId: z.string().uuid('ID da organização inválido.').nullish().transform((v) => v ?? undefined),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
