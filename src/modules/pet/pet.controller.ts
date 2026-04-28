@@ -12,6 +12,7 @@ import {
   UpdatePetSchema,
 } from './pet.schema'
 import type { PetService } from './pet.service'
+import { toPetView } from './pet.mapper'
 import { validateImageMagicBytes } from '../../shared/utils/validate-image-magic'
 
 export class PetController {
@@ -20,13 +21,13 @@ export class PetController {
   async listOrgPets(request: FastifyRequest<{ Params: { orgId: string } }>, reply: FastifyReply) {
     const userId = (request as any).user!.id
     const pets = await this.service.findByOrg(request.params.orgId, userId)
-    return reply.status(200).send({ success: true, data: pets })
+    return reply.status(200).send({ success: true, data: pets.map(toPetView) })
   }
 
   async listMyPets(request: FastifyRequest, reply: FastifyReply) {
     const userId = (request as any).user!.id
     const pets = await this.service.findByUser(userId)
-    return reply.status(200).send({ success: true, data: pets })
+    return reply.status(200).send({ success: true, data: pets.map(toPetView) })
   }
 
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -39,12 +40,12 @@ export class PetController {
     }
     const userId = (request as any).user!.id
     const pet = await this.service.createForUser(userId, parsed.data)
-    return reply.status(201).send({ success: true, data: pet })
+    return reply.status(201).send({ success: true, data: toPetView(pet) })
   }
 
   async getById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const pet = await this.service.findById(request.params.id)
-    return reply.status(200).send({ success: true, data: pet })
+    return reply.status(200).send({ success: true, data: toPetView(pet) })
   }
 
   async update(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
@@ -57,7 +58,7 @@ export class PetController {
     }
     const userId = (request as any).user!.id
     const pet = await this.service.update(request.params.id, parsed.data, userId)
-    return reply.status(200).send({ success: true, data: pet })
+    return reply.status(200).send({ success: true, data: toPetView(pet) })
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
@@ -150,6 +151,6 @@ export class PetController {
     }
 
     const pet = await this.service.uploadPhoto(request.params.id, buffer, data.mimetype)
-    return reply.status(200).send({ success: true, data: pet })
+    return reply.status(200).send({ success: true, data: toPetView(pet) })
   }
 }
