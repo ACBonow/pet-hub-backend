@@ -17,12 +17,12 @@ const TutorshipTypeEnum = z.enum(['OWNER', 'TUTOR', 'TEMPORARY_HOME'], {
 export const CreatePetSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.').max(100, 'Nome deve ter no máximo 100 caracteres.'),
   species: z.string().min(1, 'Espécie é obrigatória.').max(100, 'Espécie deve ter no máximo 100 caracteres.'),
-  breed: z.string().max(100, 'Raça deve ter no máximo 100 caracteres.').optional(),
-  gender: z.string().max(20, 'Gênero deve ter no máximo 20 caracteres.').optional(),
-  castrated: z.boolean().optional(),
-  birthDate: z.coerce.date().optional(),
-  microchip: z.string().max(50, 'Microchip deve ter no máximo 50 caracteres.').optional(),
-  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').optional(),
+  breed: z.string().max(100, 'Raça deve ter no máximo 100 caracteres.').nullish().transform((v) => v ?? undefined),
+  gender: z.string().max(20, 'Gênero deve ter no máximo 20 caracteres.').nullish().transform((v) => v ?? undefined),
+  castrated: z.boolean().nullish().transform((v) => v ?? undefined),
+  birthDate: z.coerce.date().nullish().transform((v) => v ?? undefined),
+  microchip: z.string().max(50, 'Microchip deve ter no máximo 50 caracteres.').nullish().transform((v) => v ?? undefined),
+  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').nullish().transform((v) => v ?? undefined),
   tutorshipType: TutorshipTypeEnum.default('OWNER'),
 })
 
