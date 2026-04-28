@@ -15,7 +15,7 @@ export const AddVaccinationSchema = z.object({
   nextDueDate: z.coerce.date().optional(),
   veterinarianName: z.string().max(100, 'Nome do veterinário deve ter no máximo 100 caracteres.').optional(),
   clinicName: z.string().max(100, 'Nome da clínica deve ter no máximo 100 caracteres.').optional(),
-  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').optional(),
+  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres.').nullish(),
 })
 
 export type AddVaccinationDto = z.infer<typeof AddVaccinationSchema>
@@ -27,7 +27,7 @@ export const AddPreventiveSchema = z.object({
   nextDueDate: z.coerce.date().optional(),
   brand: z.string().max(100).optional(),
   batchNumber: z.string().max(50).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(2000).nullish(),
 })
 
 export type AddPreventiveDto = z.infer<typeof AddPreventiveSchema>
