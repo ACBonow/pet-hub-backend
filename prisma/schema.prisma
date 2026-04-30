@@ -446,7 +446,7 @@ model ServiceListing {
   deletedAt          DateTime? @map("deleted_at")
 
   serviceType  ServiceType    @relation(fields: [serviceTypeId], references: [id])
-  organization Organization?  @relation(fields: [organizationId], references: [id])
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([serviceTypeId])
   @@index([deletedAt])
