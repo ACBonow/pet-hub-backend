@@ -105,6 +105,10 @@ export class ServicesDirectoryService {
       if (!role || !(ALLOWED_ORG_ROLES as readonly string[]).includes(role)) {
         throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas OWNER ou MANAGER da organização podem excluir este serviço.')
       }
+    } else {
+      if (!existing.createdByUserId || existing.createdByUserId !== userId) {
+        throw new AppError(403, 'INSUFFICIENT_PERMISSION', 'Apenas o criador do serviço pode excluir este serviço.')
+      }
     }
 
     await this.repository.delete(id)
