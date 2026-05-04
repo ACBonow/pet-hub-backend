@@ -27,6 +27,7 @@ const MOCK_USER: UserRecord = {
   verificationTokenExpiresAt: null,
   resetPasswordToken: null,
   resetPasswordTokenExpiresAt: null,
+  termsAcceptedAt: null,
 }
 
 const UNVERIFIED_USER: UserRecord = {
@@ -68,6 +69,7 @@ function makeRepo(overrides: Partial<IAuthRepository> = {}): jest.Mocked<IAuthRe
     findUserByResetPasswordToken: jest.fn(),
     updatePassword: jest.fn(),
     clearResetPasswordToken: jest.fn(),
+    acceptTerms: jest.fn(),
     ...overrides,
   } as jest.Mocked<IAuthRepository>
 }
@@ -115,6 +117,7 @@ describe('AuthService', () => {
       password: 'password123',
       name: 'João Silva',
       cpf: '52998224725',
+      termsAccepted: true as const,
     }
 
     it('throws ConflictError if email already in use', async () => {
@@ -163,7 +166,9 @@ describe('AuthService', () => {
         'new@example.com',
         '$2b$10$hashed',
         expect.objectContaining({ name: 'João Silva', cpf: '52998224725' }),
+        expect.any(Date),
       )
+      expect(result.user.termsAcceptedAt).toBeNull()
       expect(personRepo.create).not.toHaveBeenCalled()
       expect(repo.setVerificationToken).toHaveBeenCalledWith(
         UNVERIFIED_USER.id,
@@ -407,6 +412,19 @@ describe('AuthService', () => {
         MOCK_USER.email,
         expect.any(String),
       )
+    })
+  })
+
+  // ── acceptTerms ───────────────────────────────────────────────────────────
+
+  describe('acceptTerms', () => {
+    it('calls repository.acceptTerms with the userId and a Date', async () => {
+      repo.acceptTerms.mockResolvedValueOnce(undefined)
+
+      const result = await service.acceptTerms('user-1')
+
+      expect(repo.acceptTerms).toHaveBeenCalledWith('user-1', expect.any(Date))
+      expect(result).toBeInstanceOf(Date)
     })
   })
 

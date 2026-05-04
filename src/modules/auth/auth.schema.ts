@@ -13,6 +13,9 @@ export const RegisterSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres.').max(100, 'Nome deve ter no máximo 100 caracteres.'),
   cpf: z.string().min(1, 'CPF é obrigatório.').transform(sanitizeCpf),
   phone: z.string().max(20, 'Telefone deve ter no máximo 20 caracteres.').optional(),
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: 'É necessário aceitar os Termos de Uso para criar uma conta.' }),
+  }),
 })
 
 export const LoginSchema = z.object({

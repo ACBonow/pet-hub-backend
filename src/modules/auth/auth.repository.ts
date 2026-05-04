@@ -18,6 +18,7 @@ export interface IAuthRepository {
     email: string,
     passwordHash: string,
     personData: { name: string; cpf: string; phone?: string },
+    termsAcceptedAt: Date,
   ): Promise<{ user: UserRecord; person: PersonSnapshot }>
   setRefreshToken(userId: string, token: string | null): Promise<void>
   findUserByRefreshToken(token: string): Promise<UserRecord | null>
@@ -28,6 +29,7 @@ export interface IAuthRepository {
   findUserByResetPasswordToken(token: string): Promise<UserRecord | null>
   updatePassword(userId: string, passwordHash: string): Promise<void>
   clearResetPasswordToken(userId: string): Promise<void>
+  acceptTerms(userId: string, acceptedAt: Date): Promise<void>
 }
 
 export class PrismaAuthRepository implements IAuthRepository {
@@ -43,9 +45,10 @@ export class PrismaAuthRepository implements IAuthRepository {
     email: string,
     passwordHash: string,
     personData: { name: string; cpf: string; phone?: string },
+    termsAcceptedAt: Date,
   ): Promise<{ user: UserRecord; person: PersonSnapshot }> {
     return prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({ data: { email, passwordHash } })
+      const user = await tx.user.create({ data: { email, passwordHash, termsAcceptedAt } })
       const person = await tx.person.create({
         data: {
           userId: user.id,
@@ -104,5 +107,9 @@ export class PrismaAuthRepository implements IAuthRepository {
       where: { id: userId },
       data: { resetPasswordToken: null, resetPasswordTokenExpiresAt: null },
     })
+  }
+
+  async acceptTerms(userId: string, acceptedAt: Date): Promise<void> {
+    await prisma.user.update({ where: { id: userId }, data: { termsAcceptedAt: acceptedAt } })
   }
 }

@@ -32,14 +32,14 @@ describe('Auth routes', () => {
       jest.mocked(service.register).mockResolvedValueOnce({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        user: { id: 'user-1', email: 'new@example.com' },
+        user: { id: 'user-1', email: 'new@example.com', termsAcceptedAt: new Date() },
         person: { id: 'person-1', name: 'João Silva' },
       })
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'new@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25' },
+        payload: { email: 'new@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25', termsAccepted: true },
       })
 
       expect(response.statusCode).toBe(201)
@@ -87,7 +87,7 @@ describe('Auth routes', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/register',
-        payload: { email: 'taken@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25' },
+        payload: { email: 'taken@example.com', password: 'password123', name: 'João Silva', cpf: '529.982.247-25', termsAccepted: true },
       })
 
       expect(response.statusCode).toBe(409)
@@ -103,7 +103,7 @@ describe('Auth routes', () => {
       jest.mocked(service.login).mockResolvedValueOnce({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        user: { id: 'user-1', email: 'test@example.com' },
+        user: { id: 'user-1', email: 'test@example.com', termsAcceptedAt: null },
         person: { id: 'person-1', name: 'João Silva' },
       })
 
@@ -406,6 +406,49 @@ describe('Auth routes', () => {
       })
 
       expect(response.statusCode).toBe(400)
+      await app.close()
+    })
+  })
+
+  // ── POST /api/v1/auth/accept-terms ────────────────────────────────────────
+
+  describe('POST /api/v1/auth/accept-terms', () => {
+    it('returns 200 with termsAcceptedAt when authenticated', async () => {
+      const { app, service } = await buildTestApp()
+      const acceptedAt = new Date()
+      jest.mocked(service.acceptTerms).mockResolvedValueOnce(acceptedAt)
+
+      const jwt = await import('jsonwebtoken')
+      const token = jwt.default.sign(
+        { sub: 'user-1' },
+        process.env.JWT_SECRET ?? 'test-secret',
+        { expiresIn: '15m' },
+      )
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/accept-terms',
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      expect(response.statusCode).toBe(200)
+      const body = response.json()
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveProperty('termsAcceptedAt')
+      expect(service.acceptTerms).toHaveBeenCalledWith('user-1')
+
+      await app.close()
+    })
+
+    it('returns 401 when not authenticated', async () => {
+      const { app } = await buildTestApp()
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/accept-terms',
+      })
+
+      expect(response.statusCode).toBe(401)
       await app.close()
     })
   })

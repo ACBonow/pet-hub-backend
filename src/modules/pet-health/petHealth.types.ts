@@ -33,7 +33,7 @@ export interface VaccinationCreateInput {
   veterinarianName?: string
   clinicName?: string
   fileUrl?: string
-  notes?: string
+  notes?: string | null
 }
 
 export interface AddVaccinationInput {
@@ -45,7 +45,7 @@ export interface AddVaccinationInput {
   nextDueDate?: Date
   veterinarianName?: string
   clinicName?: string
-  notes?: string
+  notes?: string | null
 }
 
 export interface ExamFileRecord {
@@ -118,7 +118,7 @@ export interface AddPreventiveInput {
   nextDueDate?: Date
   brand?: string
   batchNumber?: string
-  notes?: string
+  notes?: string | null
 }
 
 export interface PreventiveCreateInput extends AddPreventiveInput {

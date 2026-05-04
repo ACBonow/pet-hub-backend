@@ -23,6 +23,7 @@ model User {
   verificationTokenExpiresAt DateTime? @map("verification_token_expires_at")
   resetPasswordToken         String?   @map("reset_password_token")
   resetPasswordTokenExpiresAt DateTime? @map("reset_password_token_expires_at")
+  termsAcceptedAt            DateTime? @map("terms_accepted_at")
 
   person Person?
 

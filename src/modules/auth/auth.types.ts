@@ -10,6 +10,7 @@ export interface RegisterInput {
   name: string
   cpf: string
   phone?: string
+  termsAccepted: true
 }
 
 export interface LoginInput {
@@ -44,7 +45,7 @@ export interface AuthTokens {
 }
 
 export interface AuthLoginResponse extends AuthTokens {
-  user: { id: string; email: string }
+  user: { id: string; email: string; termsAcceptedAt: Date | null }
   person: { id: string; name: string } | null
 }
 
@@ -63,6 +64,7 @@ export interface UserRecord {
   verificationTokenExpiresAt: Date | null
   resetPasswordToken: string | null
   resetPasswordTokenExpiresAt: Date | null
+  termsAcceptedAt: Date | null
 }
 
 /** Snapshot mínimo da Person criada atomicamente junto ao User no registro. */

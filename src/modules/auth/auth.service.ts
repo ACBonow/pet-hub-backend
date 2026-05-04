@@ -69,10 +69,12 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS)
+    const termsAcceptedAt = new Date()
     const { user, person } = await this.repository.createUserWithPerson(
       input.email,
       passwordHash,
       { name: input.name, cpf, phone: input.phone },
+      termsAcceptedAt,
     )
 
     const verificationToken = generateSecureToken()
@@ -85,7 +87,7 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, termsAcceptedAt: user.termsAcceptedAt },
       person: { id: person.id, name: person.name },
     }
   }
@@ -113,7 +115,7 @@ export class AuthService {
       ? { id: personRecord.id, name: personRecord.name }
       : null
 
-    return { ...tokens, user: { id: user.id, email: user.email }, person }
+    return { ...tokens, user: { id: user.id, email: user.email, termsAcceptedAt: user.termsAcceptedAt }, person }
   }
 
   async refresh(input: RefreshInput): Promise<AuthTokens> {
@@ -173,6 +175,12 @@ export class AuthService {
     const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS)
     await this.repository.setResetPasswordToken(user.id, resetToken, resetTokenExpiresAt)
     await this.emailService.sendPasswordResetEmail(user.email, resetToken)
+  }
+
+  async acceptTerms(userId: string): Promise<Date> {
+    const acceptedAt = new Date()
+    await this.repository.acceptTerms(userId, acceptedAt)
+    return acceptedAt
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<void> {

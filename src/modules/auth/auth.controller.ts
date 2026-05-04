@@ -113,4 +113,9 @@ export class AuthController {
     await this.service.resetPassword(parsed.data)
     return reply.status(200).send({ success: true, data: { message: 'Senha redefinida com sucesso.' } })
   }
+
+  async acceptTerms(request: FastifyRequest, reply: FastifyReply) {
+    const termsAcceptedAt = await this.service.acceptTerms(request.user!.id)
+    return reply.status(200).send({ success: true, data: { termsAcceptedAt } })
+  }
 }
