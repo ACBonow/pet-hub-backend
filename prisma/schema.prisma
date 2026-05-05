@@ -200,7 +200,7 @@ enum AdoptionStatus {
 
 model AdoptionListing {
   id               String         @id @default(uuid())
-  petId            String         @unique @map("pet_id")
+  petId            String         @map("pet_id")
   listenerType     TutorType      @map("listener_type") // who listed it
   personId         String?        @map("person_id")
   organizationId   String?        @map("organization_id")

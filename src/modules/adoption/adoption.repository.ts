@@ -4,7 +4,9 @@
  * @description Repository interface and Prisma implementation for adoption persistence.
  */
 
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../shared/config/database'
+import { AppError } from '../../shared/errors/AppError'
 import { mapListing, ADOPTION_LISTING_INCLUDE } from './adoption.mapper'
 import type {
   AdoptionCreateInput,
@@ -27,21 +29,28 @@ export interface IAdoptionRepository {
 
 export class PrismaAdoptionRepository implements IAdoptionRepository {
   async create(data: AdoptionCreateInput): Promise<AdoptionListingRecord> {
-    const row = await prisma.adoptionListing.create({
-      data: {
-        petId: data.petId,
-        listenerType: data.listerType as any,
-        personId: data.personId ?? null,
-        organizationId: data.organizationId ?? null,
-        description: data.description ?? null,
-        contactEmail: data.contactEmail ?? null,
-        contactPhone: data.contactPhone ?? null,
-        contactWhatsapp: data.contactWhatsapp ?? null,
-        status: 'AVAILABLE',
-      },
-      include: ADOPTION_LISTING_INCLUDE,
-    })
-    return mapListing(row)
+    try {
+      const row = await prisma.adoptionListing.create({
+        data: {
+          petId: data.petId,
+          listenerType: data.listerType as any,
+          personId: data.personId ?? null,
+          organizationId: data.organizationId ?? null,
+          description: data.description ?? null,
+          contactEmail: data.contactEmail ?? null,
+          contactPhone: data.contactPhone ?? null,
+          contactWhatsapp: data.contactWhatsapp ?? null,
+          status: 'AVAILABLE',
+        },
+        include: ADOPTION_LISTING_INCLUDE,
+      })
+      return mapListing(row)
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new AppError(409, 'ALREADY_EXISTS', 'Este pet já possui uma listagem de adoção ativa.')
+      }
+      throw err
+    }
   }
 
   async findById(id: string): Promise<AdoptionListingRecord | null> {
