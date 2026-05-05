@@ -132,7 +132,7 @@ model Pet {
   vaccinations      Vaccination[]
   examFiles         ExamFile[]
   preventiveRecords PreventiveRecord[]
-  adoptionListing   AdoptionListing?
+  adoptionListings  AdoptionListing[]
   lostFoundReports  LostFoundReport[]
 
   @@index([deletedAt])
